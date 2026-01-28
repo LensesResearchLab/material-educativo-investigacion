@@ -1,0 +1,542 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Headless Testing con Cypress CLI</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14" ga4id=""></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  codelab-ga4id=""
+                  id="cypress_headless"
+                  title="Headless Testing con Cypress CLI"
+                  environment="web"
+                  feedback-link="https://github.com/LensesResearchLab/material-educativo-investigacion/issues">
+    
+      <google-codelab-step label="Introducción a Cypress CLI" duration="0">
+        <p>La mayoría aprendemos a automatizar usando el &#34;Test Runner&#34; (esa bonita interfaz gráfica donde ves el navegador moverse). Pero seamos realistas: <strong>los servidores de Integración Continua (CI/CD) no tienen ojos (monitores).</strong></p>
+<p>En esta primera fase, vamos a configurar un entorno Linux desde cero (tal como sería un contenedor de Docker en Jenkins o un Runner de GitHub Actions) y ejecutaremos nuestra primera prueba sin ver absolutamente nada visualmente, confiando plenamente en los logs.</p>
+<p><strong>Concepto Clave: ¿Qué es Headless Testing?</strong> Cuando ejecutas Cypress en modo <em>headless</em>, el navegador (Chrome, Electron, Firefox) sí se ejecuta, pero no dibuja la interfaz gráfica (UI) en pantalla. Todo ocurre en memoria.</p>
+<p class="image-container"><img alt="img-01" src="img/b5792c8ddf7e88d5.png"></p>
+<h2 is-upgraded><strong>Introducción y Prerrequisitos</strong></h2>
+<p>En este Codelab, aprenderás a configurar y ejecutar pruebas automatizadas profesionales utilizando Cypress en modo <strong>Headless</strong> (sin interfaz gráfica). Simularemos el flujo de trabajo real de un Ingeniero de Automatización trabajando con servidores de Integración Continua (CI).</p>
+<p><strong>Lo que aprenderás:</strong></p>
+<ul>
+<li>Configurar Cypress desde cero.</li>
+<li>Implementar el patrón Page Object Model (POM).</li>
+<li>Depurar errores sin ver el navegador (usando Logs y Screenshots).</li>
+<li>Generar reportes HTML ejecutivos.</li>
+</ul>
+<p><strong>Lo que necesitas:</strong></p>
+<ul>
+<li><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fnodejs.org%2F" target="_blank"><strong>Node.js</strong></a> instalado (v16 o superior).</li>
+<li>Un editor de código (recomendamos <strong>VS Code</strong>).</li>
+<li>Una terminal (PowerShell, Bash o Zsh).</li>
+</ul>
+<h2 is-upgraded><strong>Inicialización del Proyecto</strong></h2>
+<ol type="1">
+<li>Crea una carpeta destinada para la realización del taller</li>
+<li>Abre una terminal en la ubicación de esa carpeta</li>
+<li>Abre esa carpeta en tu editor de código, por ejemplo, VS Code</li>
+</ol>
+<p>En la terminal, corre el siguiente comando:</p>
+<pre><code language="language-bash" class="language-bash">npm init -y
+npm install cypress --save-dev
+</code></pre>
+<p><em>Nota:</em> Usaremos el flag <code>--save-dev</code> porque Cypress es una herramienta de desarrollo/testing, no una dependencia que tu aplicación necesite para funcionar en producción.</p>
+<h2 is-upgraded><strong>Configuración de Cypress</strong></h2>
+<p>En la raíz del proyecto, crea un archivo llamado <code>cypress.config.js</code>. Este será el cerebro de nuestras pruebas.</p>
+<p>Copia y pega el siguiente código:</p>
+<pre><code language="language-jsx" class="language-jsx">const { defineConfig } = require(&#34;cypress&#34;);
+
+module.exports = defineConfig({
+  e2e: {
+    // URL base de nuestra aplicación (Swag Labs)
+    baseUrl: &#39;https://www.saucedemo.com&#39;,
+    // Patrón para encontrar nuestros archivos de prueba
+    specPattern: &#39;cypress/e2e/**/*.cy.js&#39;,
+    // Deshabilitamos video por defecto (lo activaremos luego)
+    video: false,
+    chromeWebSecurity: false,
+    setupNodeEvents(on, config) {
+      // listeners
+    },
+  },
+});
+</code></pre>
+<p>Además, crea el archivo <code>e2e.js</code> en la carpeta <code>cypress/support</code></p>
+<p>Déjalo vacío, solo hace parte del Set Up de Cypress</p>
+<h2 is-upgraded><strong>Tu Primer Test (Smoke Test)</strong></h2>
+<p>Cypress necesita una estructura de carpetas específica.</p>
+<ol type="1">
+<li>Crea la carpeta <code>cypress</code> en la raíz.</li>
+<li>Dentro, crea la carpeta <code>e2e</code>.</li>
+<li>Crea un archivo <code>cypress/e2e/login.cy.js</code>.</li>
+</ol>
+<p>Pega el siguiente código para validar que la página carga:</p>
+<pre><code language="language-jsx" class="language-jsx">describe(&#39;Swag Labs - Smoke Test&#39;, () =&gt; {
+  it(&#39;Debe cargar la página de inicio correctamente&#39;, () =&gt; {
+    cy.visit(&#39;/&#39;); // Usa la baseUrl configurada
+    cy.title().should(&#39;eq&#39;, &#39;Swag Labs&#39;);
+    cy.log(&#39;La página cargó correctamente&#39;);
+  });
+});
+</code></pre>
+<h2 is-upgraded><strong>Ejecución Headless</strong></h2>
+<p>Ahora viene la magia. No usaremos <code>npx cypress open</code>. En su lugar, ejecutaremos la prueba directamente en la consola.</p>
+<p>Ejecuta en tu terminal:</p>
+<pre><code language="language-bash" class="language-bash">npx cypress run
+</code></pre>
+<p><strong>¿Qué debemos observar en la salida?</strong></p>
+<ol type="1">
+<li><strong>Browser:</strong> Nos dirá qué navegador usó (generalmente Electron headless por defecto).</li>
+<li><strong>Specs:</strong> Cuántos archivos de prueba encontró.</li>
+<li><strong>Tests:</strong> Cuántos tests pasaron (Green) y cuántos fallaron (Red).</li>
+<li><strong>Time:</strong> Cuánto tardó la ejecución (vital para métricas de CI).</li>
+</ol>
+<p>Deberás ver una tabla en tu terminal con letras verdes indicando <code>✔ All specs passed!</code>.</p>
+<aside class="special"><p> Fíjense en la salida de texto. Cypress no solo nos dijo &#34;pasó&#34;, nos dio detalles del entorno: </p>
+<ul>
+<li>Cypress Version: Saber la versión es crítico cuando hay breaking changes.</li>
+<li>Browser: Electron XX (Headless).</li>
+<li>Node Version: La versión del runtime.</li>
+</ul>
+<p>En un entorno profesional, <strong>estos logs son tu única fuente de verdad</strong>. Si un test falla un viernes a las 6 PM en el servidor de Jenkins, no tendrás un video inmediato, tendrás este texto. Aprender a leerlo es el primer paso para dominar la automatización.</p>
+</aside>
+<p class="image-container"><img alt="img-02" src="img/5b26fb06587b74fd.png"></p>
+<p><em>¿Estamos listos para dejar el código &#34;hardcodeado&#34; y empezar a usar buenas prácticas? En la siguiente fase, implementaremos Page Object Model y Fixtures.</em></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Profesionalizando el Código (POM y Fixtures)" duration="0">
+        <h2 is-upgraded><strong>De &#34;Scripting&#34; a Ingeniería de Pruebas</strong></h2>
+<p>En la Fase 1 escribimos lo que llamamos &#34;Spaghetti Code&#34; o código lineal. Funciona para un test rápido, pero es <strong>inmantenible</strong> a largo plazo.</p>
+<p>En esta fase aplicaremos dos patrones fundamentales de la industria:</p>
+<ol type="1">
+<li><strong>Fixtures (Data Driven Testing):</strong> Separar los <em>datos</em> de la <em>lógica</em>. No escribiremos &#34;<code>secret_sauce</code>&#34; dentro del código del test.</li>
+<li><strong>Page Object Model (POM):</strong> Separar los <em>selectores HTML</em> de la <em>lógica de prueba</em>. Si el ID del botón de login cambia mañana, solo queremos corregirlo en un archivo, no en 200 tests.</li>
+</ol>
+<h2 is-upgraded>Arquitectura POM</h2>
+<p>El objetivo es crear una &#34;Capa de Abstracción&#34; entre el Test y el Navegador.</p>
+<p class="image-container"><img alt="img-03" src="img/b94f43f54db979c.png"></p>
+<h2 is-upgraded><strong>Separación de Datos (Fixtures)</strong></h2>
+<p>No queremos usuarios ni contraseñas dentro del código del test.</p>
+<ol type="1">
+<li>Crea la carpeta <code>cypress/fixtures</code>.</li>
+<li>Crea el archivo <code>users.json</code>:</li>
+</ol>
+<pre><code language="language-json" class="language-json">{
+  &#34;standard&#34;: {
+    &#34;username&#34;: &#34;standard_user&#34;,
+    &#34;password&#34;: &#34;secret_sauce&#34;
+  },
+  &#34;locked&#34;: {
+    &#34;username&#34;: &#34;locked_out_user&#34;,
+    &#34;password&#34;: &#34;secret_sauce&#34;
+  }
+}
+</code></pre>
+<h2 is-upgraded><strong>Page Object Model (POM)</strong></h2>
+<p>Vamos a crear una clase Javascript que represente la <strong>Página de Login</strong>.</p>
+<p>Esta clase tendrá:</p>
+<ol type="1">
+<li><strong>Getters:</strong> Propiedades que retornan los elementos web (Selectores).</li>
+<li><strong>Actions:</strong> Métodos que realizan acciones de negocio (ej: <code>login()</code>).</li>
+</ol>
+<aside class="special"><p> **Tip Senior:** </p>
+<p>Nota cómo usamos selectores <code>[data-test="..."]</code>. Esta es la mejor práctica en Cypress. Evita usar clases CSS (<code>.btn-primary</code>) o IDs dinámicos que los desarrolladores cambian para estilizar la página. El atributo <code>data-test</code> es un contrato sólido entre QA y Dev.</p>
+</aside>
+<ol type="1">
+<li>Crea la carpeta <code>cypress/support/pages</code>.</li>
+<li>Crea el archivo <code>LoginPage.js</code>:</li>
+</ol>
+<pre><code language="language-jsx" class="language-jsx">class LoginPage {
+  // --- Selectores (Getters) ---
+  // Centralizamos los localizadores aquí.
+  get usernameInput() { return cy.get(&#39;[data-test=&#34;username&#34;]&#39;); }
+  get passwordInput() { return cy.get(&#39;[data-test=&#34;password&#34;]&#39;); }
+  get loginButton() { return cy.get(&#39;[data-test=&#34;login-button&#34;]&#39;); }
+  get errorMessage() { return cy.get(&#39;[data-test=&#34;error&#34;]&#39;); }
+
+  // --- Acciones (Métodos de Negocio) ---
+
+  // Método modular para navegar
+  visit() {
+    cy.visit(&#39;/&#39;);
+  }
+
+  // Método atómico para escribir credenciales
+  fillCreds(username, password) {
+    this.usernameInput.clear().type(username);
+    this.passwordInput.clear().type(password);
+  }
+
+  // Método atómico para clickear
+  submit() {
+    this.loginButton.click();
+  }
+
+  // Método Agrupado (Helper): Realiza todo el flujo de login
+  login(username, password) {
+    this.fillCreds(username, password);
+    this.submit();
+  }
+}
+
+// Exportamos una instancia de la clase para no tener que hacer &#39;new&#39; en cada test
+export const loginPage = new LoginPage();
+</code></pre>
+<h2 is-upgraded><strong>Refactorización del Test</strong></h2>
+<p>Ahora vamos a reescribir nuestro test de la Fase 1. Observa cómo el código se vuelve mucho más legible, casi como leer inglés simple.</p>
+<p><strong>Cambios clave:</strong></p>
+<ul>
+<li>Importamos <code>loginPage</code>.</li>
+<li>Usamos <code>beforeEach</code> para cargar los datos del <em>fixture</em> antes de cada test.</li>
+<li>Usamos <code>cy.fixture(...).as('userData')</code> para crear un alias y acceder a los datos con <code>this.userData</code>.</li>
+<li>Ya no hay <code>cy.get</code> en el test, solo llamadas a métodos.</li>
+</ul>
+<p>Modifica tu archivo <code>cypress/e2e/login.cy.js</code> para usar el patrón nuevo:</p>
+<pre><code language="language-jsx" class="language-jsx">// Importamos el Page Object
+import { loginPage } from &#39;../support/pages/LoginPage&#39;;
+
+describe(&#39;Swag Labs - Login Tests (Refactorizado)&#39;, () =&gt; {
+
+  // Hook: Se ejecuta antes de cada test (it)
+  beforeEach(() =&gt; {
+    // Cargamos el JSON y lo guardamos en el alias &#39;users&#39;
+    cy.fixture(&#39;users&#39;).as(&#39;users&#39;);
+    // Siempre visitamos la página antes de testear
+    loginPage.visit();
+  });
+
+  it(&#39;TC-01: Login Exitoso con usuario estándar&#39;, function() {
+    // Nota: Usamos &#39;function()&#39; en lugar de &#39;() =&gt;&#39; para poder acceder a &#39;this&#39;
+    const user = this.users.standard;
+
+    // Acción: Usamos el método de alto nivel del POM
+    loginPage.login(user.username, user.password);
+
+    // Aserción: Verificamos que entramos al inventario
+    cy.url().should(&#39;include&#39;, &#39;/inventory.html&#39;);
+  });
+
+  it(&#39;TC-02: Validación de Usuario Bloqueado&#39;, function() {
+    const user = this.users.locked;
+
+    // Acción
+    loginPage.login(user.username, user.password);
+
+    // Aserción: Verificamos el mensaje de error usando el getter del POM
+    loginPage.errorMessage
+      .should(&#39;be.visible&#39;)
+      .and(&#39;contain.text&#39;, &#39;Sorry, this user has been locked out.&#39;);
+  });
+});
+</code></pre>
+<p>Ejecuta nuevamente <code>npx cypress run</code> y verifica que ambos tests pasen.</p>
+<p>Aunque hemos cambiado casi todo el código interno, el resultado externo debe ser el mismo (o mejor, porque agregamos un caso negativo).</p>
+<p>Fíjate en la consola. Ahora tenemos <strong>2 tests</strong>. Cypress ejecutará <code>beforeEach</code> dos veces (una antes de cada <code>it</code>).</p>
+<h2 is-upgraded><strong>Análisis de la Fase 2</strong></h2>
+<p>Si la salida muestra:</p>
+<pre><code>✔  All specs passed!
+</code></pre>
+<p>Significa que hemos refactorizado exitosamente sin romper la funcionalidad.</p>
+<p><strong>Ventajas logradas:</strong></p>
+<ol type="1">
+<li><strong>Reusabilidad:</strong> Si queremos hacer un test de &#34;Comprar producto&#34;, ya tenemos el método <code>loginPage.login()</code> listo para usar en el <code>beforeEach</code> de ese nuevo archivo.</li>
+<li><strong>Mantenibilidad:</strong> Si <em>Swag Labs</em> cambia el <code>id</code> del campo <code>password</code>, solo editamos <code>LoginPage.js</code> línea 7.</li>
+<li><strong>Datos Limpios:</strong> Si cambiamos la contraseña del entorno de pruebas, solo editamos <code>users.json</code>.</li>
+</ol>
+<p><em>Todo se ve muy verde y bonito, ¿verdad? Pero en la vida real, los tests fallan. En la Fase 3, vamos a provocar un fallo intencional y aprenderemos a depurar cuando no tenemos interfaz gráfica (Headless Debugging).</em></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Depuración a Ciegas (Forensics)" duration="0">
+        <p>En esta fase vamos a provocar errores intencionales. Es vital entender que <strong>un test rojo no es un fracaso, es un hallazgo</strong>. En entornos Headless (CI/CD), no tenemos ojos, así que dependemos de &#34;Artefactos&#34;: Logs, Screenshots y Videos.</p>
+<h2 is-upgraded><strong>Modo Sherlock Holmes: Debugging Headless</strong></h2>
+<p>Imagina que recibes una alerta de Jenkins: &#34;El Build falló&#34;. Entras y ves logs de texto. No hay navegador abierto. ¿Qué pasó? ¿La página no cargó? ¿Cambió un botón? ¿La API respondió 500?</p>
+<p>Cypress tiene herramientas poderosas para esto. Por defecto, cuando corres en CLI (<code>cypress run</code>):</p>
+<ol type="1">
+<li><strong>Logs de Consola:</strong> Te dice qué aserción falló.</li>
+<li><strong>Screenshots:</strong> Toma una foto automática <strong>solo</strong> si el test falla.</li>
+<li><strong>Videos:</strong> Graba toda la sesión (si lo activamos).</li>
+</ol>
+<p>Vamos a configurar esto y luego romperemos nuestro código a propósito.</p>
+<h2 is-upgraded><strong>Reconfiguración: Activando los &#34;Ojos&#34; de Cypress</strong></h2>
+<p>Vamos a modificar nuestro <code>cypress.config.js</code>. Activaremos la grabación de video y configuraremos una estrategia de <strong>Retries</strong> (Reintentos).</p>
+<aside class="special"><p> **¿Qué son los Retries?** </p>
+<p>A veces la red parpadea y un test falla falsamente (<em>Flaky Test</em>). Configurar <code>runMode: 2</code> le dice a Cypress: <em>&#34;Si falla, inténtalo una vez más antes de marcarlo como error&#34;</em>. Esto da estabilidad al Pipeline.</p>
+</aside>
+<p>Edita tu <code>cypress.config.js</code> para habilitar video y capturas de pantalla automáticas al fallar:</p>
+<pre><code language="language-jsx" class="language-jsx">const { defineConfig } = require(&#34;cypress&#34;);
+
+module.exports = defineConfig({
+  e2e: {
+    baseUrl: &#39;https://www.saucedemo.com&#39;,
+    specPattern: &#39;cypress/e2e/**/*.cy.js&#39;,
+    chromeWebSecurity: false,
+
+    // --- Configuración de Debugging y Estabilidad ---
+
+    // 1. Habilitamos video para ver la repetición de la jugada
+    video: true,
+    // Comprimimos el video para que no ocupe mucho espacio (0 a 51)
+    videoCompression: 32,
+
+    // 2. Screenshots: Por defecto es true al fallar, pero lo explicitamos
+    screenshotOnRunFailure: true,
+
+    // 3. Retries: Reintentar pruebas fallidas para evitar &#39;Flakiness&#39;
+    retries: {
+      runMode: 1, // En CLI (Headless): reintenta 1 vez extra
+      openMode: 0 // En GUI (Local): no reintentar, quiero ver el error ya
+    },
+
+    setupNodeEvents(on, config) {
+      // Listeners de eventos
+    },
+  },
+});
+</code></pre>
+<h2 is-upgraded><strong>Sabotaje: Creando un Test Fallido</strong></h2>
+<p>Vamos a crear un nuevo archivo de prueba <code>inventory.cy.js</code>. Usaremos nuestro patrón POM, pero introduciremos una <strong>Aserción Falsa</strong>.</p>
+<p>Esperaremos que, al entrar al inventario, aparezca un producto que no existe (ej: &#34;Iphone 15&#34;).</p>
+<p>Crea un nuevo archivo <code>cypress/e2e/inventory.cy.js</code> con el error intencional:</p>
+<pre><code language="language-jsx" class="language-jsx">import { loginPage } from &#39;../support/pages/LoginPage&#39;;
+
+describe(&#39;Swag Labs - Inventory Tests&#39;, () =&gt; {
+
+  beforeEach(() =&gt; {
+    cy.fixture(&#39;users&#39;).as(&#39;users&#39;);
+    loginPage.visit();
+  });
+
+  // Este test pasará
+  it(&#39;Debe mostrar la lista de productos&#39;, function() {
+    loginPage.login(this.users.standard.username, this.users.standard.password);
+    cy.get(&#39;.inventory_list&#39;).should(&#39;be.visible&#39;);
+  });
+
+  // Este test FALLARÁ INTENCIONALMENTE
+  it(&#39;Debe encontrar un Iphone 15 (Fallo esperado)&#39;, function() {
+    loginPage.login(this.users.standard.username, this.users.standard.password);
+
+    // Intentamos buscar un elemento que no existe
+    // Cypress esperará 4 segundos (default timeout) y fallará.
+    cy.contains(&#39;.inventory_item_name&#39;, &#39;Iphone 15 Pro Max&#39;)
+      .should(&#39;be.visible&#39;);
+  });
+
+});
+</code></pre>
+<h2 is-upgraded><strong>Ejecución y Análisis del Fallo</strong></h2>
+<p>Ejecutemos Cypress. Esta vez esperamos ver <strong>texto rojo</strong>.</p>
+<p>Ejecuta en la terminal:</p>
+<pre><code language="language-bash" class="language-bash">npx cypress run --spec &#34;cypress/e2e/inventory.cy.js&#34;
+</code></pre>
+<p>Presten atención al proceso:</p>
+<ol type="1">
+<li>Verán que el test de inventory tarda más de lo normal. (Está haciendo el retry).</li>
+<li>Al final, el resumen dirá &#34;<code>1 of 2 failed</code>&#34;.</li>
+<li>Cypress nos avisará que guardó screenshots y video.</li>
+</ol>
+<h2 is-upgraded><strong>Análisis Forense: Visualizando la Evidencia</strong></h2>
+<p>Hay texto rojo en la consola. <strong>No te asustes.</strong></p>
+<ol type="1">
+<li>Ve a tu explorador de archivos en VS Code.</li>
+<li>Busca la carpeta <code>cypress/screenshots</code>. Ahí verás una imagen del momento exacto del fallo.</li>
+<li>Busca la carpeta <code>cypress/videos</code>. Ahí verás un <code>.mp4</code> con la grabación de la sesión.</li>
+</ol>
+<p>Lección: Estos archivos son los que buscarás en Jenkins o GitHub Actions cuando un <em>build</em> se rompa.</p>
+<h2 is-upgraded><strong>Reflexión del Mentor (Debriefing)</strong></h2>
+<p>Mira la imagen de arriba.</p>
+<ol type="1">
+<li>Vemos la página de &#34;Products&#34;.</li>
+<li>Vemos la lista de items (Backpack, Bike Light...).</li>
+<li><strong>NO</strong> vemos el &#34;Iphone 15 Pro Max&#34;.</li>
+</ol>
+<p><strong>Conclusión:</strong></p>
+<p>El test falló correctamente. La aplicación está bien, lo que estaba mal era nuestra expectativa (el test).</p>
+<p>El <strong>Video</strong> (archivo <code>.mp4</code> en <code>cypress/videos</code>) nos mostraría toda la navegación previa: el login, la carga de la página y los 4 segundos de espera buscando el Iphone.</p>
+<p>Importante: El uso de retries (que configuramos en un paso anterior) hizo que el test se ejecutara dos veces antes de rendirse. Esto es vital en la nube, donde a veces una imagen tarda 1 segundo más en cargar y rompe el test innecesariamente.</p>
+<p class="image-container"><img alt="img-04" src="img/f8698d6f22608a1a.png"></p>
+<p><em>Ya sabemos correr tests, estructurarlos profesionalmente y depurarlos cuando explotan. ¿Qué falta? Generar un reporte que podamos entregarle al Jefe o al Cliente. Nadie quiere leer logs de terminal. En la Fase 4, crearemos Dashboards HTML.</em></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Reportes Ejecutivos y Simulación de CI/CD" duration="0">
+        <p>Esta fase transforma nuestra terminal de hackers en un Dashboard gerencial.</p>
+<p>Al final de esta sección, simularemos cómo descargar &#34;Artefactos&#34; del servidor, tal como lo haría un usuario descargando el reporte de un build de Jenkins.</p>
+<h2 is-upgraded><strong>De Logs a Dashboards</strong></h2>
+<p>Seamos honestos: si le envías a tu Project Manager o al Cliente una captura de pantalla de tu terminal negra con letras blancas, no entenderán nada.</p>
+<p>Para que la automatización aporte valor, necesita <strong>Reportes Legibles</strong>.</p>
+<p>Vamos a implementar <strong><code>cypress-mochawesome-reporter</code></strong>, el estándar actual de la industria para generar reportes HTML autocontenidos (con gráficos, filtros y screenshots incrustados).</p>
+<h2 is-upgraded><strong>Instalación del Reporter</strong></h2>
+<p>Instalaremos la librería necesaria. Es un &#34;paquete de cero configuración&#34; que simplifica mucho el proceso antiguo de unir archivos JSON.</p>
+<p>Ejecuta en tu terminal:</p>
+<pre><code language="language-bash" class="language-bash">npm install cypress-mochawesome-reporter --save-dev
+</code></pre>
+<h2 is-upgraded><strong>Configuración Final</strong></h2>
+<p>Debemos decirle a Cypress que deje de usar el reporter por defecto (spec) y use el nuestro. También configuraremos que los screenshots se incrusten directamente en el HTML.</p>
+<p>Vamos a sobreescribir nuestro archivo de configuración por última vez.</p>
+<p>Actualiza <code>cypress.config.js</code> para incluir el reporter:</p>
+<pre><code language="language-jsx" class="language-jsx">const { defineConfig } = require(&#34;cypress&#34;);
+
+module.exports = defineConfig({
+  // Definimos el reporter que acabamos de instalar
+  reporter: &#39;cypress-mochawesome-reporter&#39;,
+  reporterOptions: {
+    charts: true,           // Muestra gráficos de torta (Pass/Fail)
+    reportPageTitle: &#39;Reporte de Pruebas SwagLabs&#39;,
+    embeddedScreenshots: true, // ¡Vital! Mete la foto del error dentro del HTML
+    inlineAssets: true,     // Crea un solo archivo HTML (sin carpetas CSS externas)
+    saveAllAttempts: false,
+  },
+  e2e: {
+    baseUrl: &#39;https://www.saucedemo.com&#39;,
+    specPattern: &#39;cypress/e2e/**/*.cy.js&#39;,
+    chromeWebSecurity: false,
+    video: false, // Apagamos video para este ejemplo (el reporter usa screenshots)
+    screenshotOnRunFailure: true,
+
+    setupNodeEvents(on, config) {
+      // Aquí registramos el plugin del reporter
+      require(&#39;cypress-mochawesome-reporter/plugin&#39;)(on);
+      return config;
+    },
+  },
+});
+</code></pre>
+<h2 is-upgraded><strong>Registro en el Support File</strong></h2>
+<p>Cypress necesita cargar el plugin del reporter antes de que inicien los tests. Esto se hace en <code>cypress/support/e2e.js</code>.</p>
+<pre><code language="language-jsx" class="language-jsx">// Importamos los comandos por defecto
+import &#39;./commands&#39;;
+
+// Registramos el reporter para que escuche los fallos
+import &#39;cypress-mochawesome-reporter/register&#39;;
+
+// (Opcional) Podemos silenciar logs XHR ruidosos aquí si quisiéramos
+</code></pre>
+<h2 is-upgraded><strong>Generación del Reporte</strong></h2>
+<p>Vamos a correr <strong>toda</strong> la suite de pruebas.</p>
+<p>Recuerda:</p>
+<ol type="1">
+<li><code>login.cy.js</code>: Debería pasar (2 tests).</li>
+<li><code>inventory.cy.js</code>: Debería tener 1 test pasado y 1 fallido (el del Iphone 15).</li>
+</ol>
+<p>Al finalizar, Cypress generará una carpeta <code>cypress/reports</code>.</p>
+<p>Nota: si no tienes el archivo <code>commands.js</code> dentro de <code>cypress/support</code>, créalo. Este archivo puede estar vacío inicialmente, o puedes agregar comandos personalizados de Cypress</p>
+<p>Ejecuta en la terminal:</p>
+<pre><code language="language-bash" class="language-bash">npx cypress run
+</code></pre>
+<h2 is-upgraded>Ver el resultado</h2>
+<ol type="1">
+<li>Al finalizar, verás una nueva carpeta <code>cypress/reports</code>.</li>
+<li>Entra a <code>cypress/reports/html</code> (o directamente dentro de reports dependiendo de la versión).</li>
+<li>Haz doble clic en <code>index.html</code> para abrirlo en tu navegador (Chrome/Edge).</li>
+</ol>
+<p>Verás un dashboard con gráficos. Busca el test del &#34;Iphone 15&#34; que falló, ábrelo y notarás que <strong>el screenshot del error está incrustado en el reporte</strong>. ¡Listo para enviarlo al equipo!</p>
+<p class="image-container"><img alt="img-05" src="img/ab14c1e4cf14b317.png"></p>
+<h2 is-upgraded><strong>Cypress CLI Avanzado: Simulación de CI/CD</strong></h2>
+<p>Para finalizar el taller, miremos cómo haríamos esto flexible.</p>
+<p>En un pipeline, no quieres editar el código para cambiar el usuario o el navegador. Usas <strong>Flags</strong>.</p>
+<p><strong>Escenarios comunes:</strong></p>
+<ol type="1">
+<li><strong>Smoke Testing:</strong> Solo correr pruebas críticas antes de un despliegue. <ul>
+<li>Comando: <code>npx cypress run --spec "cypress/e2e/login.cy.js"</code></li>
+</ul>
+</li>
+<li><strong>Cross-Browser Testing:</strong> Probar si funciona en Firefox. <ul>
+<li>Comando: <code>npx cypress run --browser firefox</code></li>
+</ul>
+</li>
+<li><strong>Inyección de Secretos:</strong> No guardar passwords en fixtures. <ul>
+<li>Podemos pasar variables de entorno desde la terminal.</li>
+</ul>
+</li>
+</ol>
+<p>Ejemplo conceptual (no ejecutable sin setup previo de variables):</p>
+<pre><code language="language-bash" class="language-bash">CYPRESS_PASSWORD=&#34;my_password&#34; npx cypress run --env user_type=admin
+</code></pre>
+<h2 is-upgraded><strong>Conclusión y Cierre del Taller</strong></h2>
+<p>¡Felicidades equipo!</p>
+<p>Han pasado de no tener nada a tener un <strong>Framework de Automatización Profesional</strong> que incluye:</p>
+<ol type="1">
+<li><strong>Headless Execution:</strong> Pruebas optimizadas para servidores Linux.</li>
+<li><strong>Patrones de Diseño:</strong> POM y Fixtures para código escalable.</li>
+<li><strong>Resiliencia:</strong> Retries automáticos para redes inestables.</li>
+<li><strong>Observabilidad:</strong> Screenshots de errores y Reportes HTML ejecutivos.</li>
+</ol>
+<p><strong>¿Siguientes pasos sugeridos?</strong></p>
+<ul>
+<li>Integrar este repositorio con GitHub Actions o Jenkins.</li>
+<li>Añadir pruebas de API (<code>cy.request</code>).</li>
+<li>Configurar Docker para ejecutar esto en un contenedor aislado.</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Referencias y Recursos Adicionales" duration="0">
+        <p>Este taller ha sido diseñado para proporcionar una base sólida en la automatización profesional, alineada con las mejores prácticas de la industria actual.</p>
+<h2 is-upgraded>Créditos</h2>
+<p>Autor: Wilmer Arévalo</p>
+<p>Rol: Profesional en Proyectos de Investigación</p>
+<p>Departamento: Centro de Investigación, Facultad de Ingeniería, Universidad de los Andes</p>
+<p>Fecha de creación/actualización: Enero de 2026</p>
+<h2 is-upgraded>Referencias Oficiales</h2>
+<p>Todo el contenido de este taller está basado en la documentación oficial más reciente:</p>
+<ul>
+<li><strong>Documentación de Cypress: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fdocs.cypress.io" target="_blank"><strong>https://docs.cypress.io</strong></a></li>
+<li><strong>Cypress CLI Guide: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fdocs.cypress.io%2Fguides%2Fguides%2Fcommand-line" target="_blank"><strong>Command Line Interface Docs</strong></a></li>
+<li><strong>Reporter Plugin: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fgithub.com%2FLironEr%2Fcypress-mochawesome-reporter" target="_blank"><strong>cypress-mochawesome-reporter (GitHub)</strong></a></li>
+</ul>
+<h2 is-upgraded><strong>Enlaces de Utilidad</strong></h2>
+<p>Guarda estos enlaces en tus favoritos, los necesitarán en el día a día como Automatizador de Pruebas de Software:</p>
+<ol type="1">
+<li><strong>Selectores: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fdocs.cypress.io%2Fguides%2Freferences%2Fbest-practices%23Selecting-Elements" target="_blank"><strong>Guía de Best Practices para Selectores</strong></a> (Por qué usar <code>data-test</code>).</li>
+<li><strong>Aserciones: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fdocs.cypress.io%2Fguides%2Freferences%2Fassertions" target="_blank"><strong>Lista completa de Assertions (Chai/Jquery)</strong></a> - Para saber qué poner después del <code>.should()</code>.</li>
+<li><strong>Swag Labs (SUT): </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fwww.saucedemo.com%2F" target="_blank"><strong>SauceDemo</strong></a> - El sitio web que usamos para pruebas.</li>
+</ol>
+<h2 is-upgraded><strong>Soporte y Dudas</strong></h2>
+<p>Si tienen dudas al implementar esto en sus proyectos reales o encuentran problemas con la configuración:</p>
+<ul>
+<li><strong>Canal de Slack/Teams:</strong> Puede hacer las preguntas a través de los medios habilitados y los profesores, tutores y monitores podrán ayudar con la aclaración</li>
+<li><strong>Email de Contacto:</strong> w.arevalo@uniandes.edu.co</li>
+</ul>
+<aside class="special"><p> **Repositorio del Taller** </p>
+<p>El código final de este ejercicio está disponible en:</p>
+<p>https://github.com/LensesResearchLab/material-educativo-investigacion</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>
