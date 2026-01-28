@@ -110,7 +110,7 @@ module.exports = defineConfig({
 <li><strong>Time:</strong> Cuánto tardó la ejecución (vital para métricas de CI).</li>
 </ol>
 <p>Deberás ver una tabla en tu terminal con letras verdes indicando <code>✔ All specs passed!</code>.</p>
-<aside class="special"><p> Fíjense en la salida de texto. Cypress no solo nos dijo &#34;pasó&#34;, nos dio detalles del entorno: </p>
+<aside class="special"><p> Fíjate en la salida de texto. Cypress no solo nos dijo &#34;pasó&#34;, nos dio detalles del entorno: </p>
 <ul>
 <li>Cypress Version: Saber la versión es crítico cuando hay breaking changes.</li>
 <li>Browser: Electron XX (Headless).</li>
@@ -159,7 +159,7 @@ module.exports = defineConfig({
 <li><strong>Getters:</strong> Propiedades que retornan los elementos web (Selectores).</li>
 <li><strong>Actions:</strong> Métodos que realizan acciones de negocio (ej: <code>login()</code>).</li>
 </ol>
-<aside class="special"><p> **Tip Senior:** </p>
+<aside class="special"><p> Tip Senior: </p>
 <p>Nota cómo usamos selectores <code>[data-test="..."]</code>. Esta es la mejor práctica en Cypress. Evita usar clases CSS (<code>.btn-primary</code>) o IDs dinámicos que los desarrolladores cambian para estilizar la página. El atributo <code>data-test</code> es un contrato sólido entre QA y Dev.</p>
 </aside>
 <ol type="1">
@@ -281,7 +281,7 @@ describe(&#39;Swag Labs - Login Tests (Refactorizado)&#39;, () =&gt; {
 <p>Vamos a configurar esto y luego romperemos nuestro código a propósito.</p>
 <h2 is-upgraded><strong>Reconfiguración: Activando los &#34;Ojos&#34; de Cypress</strong></h2>
 <p>Vamos a modificar nuestro <code>cypress.config.js</code>. Activaremos la grabación de video y configuraremos una estrategia de <strong>Retries</strong> (Reintentos).</p>
-<aside class="special"><p> **¿Qué son los Retries?** </p>
+<aside class="special"><p> ¿Qué son los Retries? </p>
 <p>A veces la red parpadea y un test falla falsamente (<em>Flaky Test</em>). Configurar <code>runMode: 2</code> le dice a Cypress: <em>&#34;Si falla, inténtalo una vez más antes de marcarlo como error&#34;</em>. Esto da estabilidad al Pipeline.</p>
 </aside>
 <p>Edita tu <code>cypress.config.js</code> para habilitar video y capturas de pantalla automáticas al fallar:</p>
@@ -522,9 +522,8 @@ import &#39;cypress-mochawesome-reporter/register&#39;;
 <li><strong>Canal de Slack/Teams:</strong> Puede hacer las preguntas a través de los medios habilitados y los profesores, tutores y monitores podrán ayudar con la aclaración</li>
 <li><strong>Email de Contacto:</strong> w.arevalo@uniandes.edu.co</li>
 </ul>
-<aside class="special"><p> **Repositorio del Taller** </p>
-<p>El código final de este ejercicio está disponible en:</p>
-<p>https://github.com/LensesResearchLab/material-educativo-investigacion</p>
+<aside class="special"><p> Repositorio del Taller </p>
+<p>El código final de este ejercicio está disponible en: <a href="https://github.com/LensesResearchLab/material-educativo-investigacion/tree/cypress_headless" target="_blank">Cypress Headless</a></p>
 </aside>
 
 

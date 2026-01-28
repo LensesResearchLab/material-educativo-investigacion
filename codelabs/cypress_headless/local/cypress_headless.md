@@ -122,7 +122,7 @@ npx cypress run
 Deberás ver una tabla en tu terminal con letras verdes indicando `✔ All specs passed!`.
 
 <aside>
-Fíjense en la salida de texto. Cypress no solo nos dijo "pasó", nos dio detalles del entorno:
+Fíjate en la salida de texto. Cypress no solo nos dijo "pasó", nos dio detalles del entorno:
 
 - Cypress Version: Saber la versión es crítico cuando hay breaking changes.
 - Browser: Electron XX (Headless).
@@ -185,7 +185,7 @@ Esta clase tendrá:
 2. **Actions:** Métodos que realizan acciones de negocio (ej: `login()`).
 
 <aside>
-**Tip Senior:**
+Tip Senior:
 
 Nota cómo usamos selectores `[data-test="..."]`. Esta es la mejor práctica en Cypress. Evita usar clases CSS (`.btn-primary`) o IDs dinámicos que los desarrolladores cambian para estilizar la página. El atributo `data-test` es un contrato sólido entre QA y Dev.
 
@@ -329,7 +329,7 @@ Vamos a configurar esto y luego romperemos nuestro código a propósito.
 Vamos a modificar nuestro `cypress.config.js`. Activaremos la grabación de video y configuraremos una estrategia de **Retries** (Reintentos).
 
 <aside>
-**¿Qué son los Retries?**
+¿Qué son los Retries?
 
 A veces la red parpadea y un test falla falsamente (*Flaky Test*). Configurar `runMode: 2` le dice a Cypress: *"Si falla, inténtalo una vez más antes de marcarlo como error"*. Esto da estabilidad al Pipeline.
 
@@ -638,10 +638,8 @@ Si tienen dudas al implementar esto en sus proyectos reales o encuentran problem
 - **Email de Contacto:** w.arevalo@uniandes.edu.co
 
 <aside>
-**Repositorio del Taller**
+Repositorio del Taller
 
-El código final de este ejercicio está disponible en:
-
-https://github.com/LensesResearchLab/material-educativo-investigacion
+El código final de este ejercicio está disponible en: [Cypress Headless](https://github.com/LensesResearchLab/material-educativo-investigacion/tree/cypress_headless)
 
 </aside>
