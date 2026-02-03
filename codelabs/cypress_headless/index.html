@@ -48,6 +48,10 @@
 <li>Un editor de código (recomendamos <strong>VS Code</strong>).</li>
 <li>Una terminal (PowerShell, Bash o Zsh).</li>
 </ul>
+<p><strong>Sobre qué trabajarás:</strong></p>
+<ul>
+<li>Swag Labs, proyecto de Sauce Labs, disponible en <a href="https://www.saucedemo.com/" target="_blank">https://www.saucedemo.com</a></li>
+</ul>
 <h2 is-upgraded><strong>Inicialización del Proyecto</strong></h2>
 <ol type="1">
 <li>Crea una carpeta destinada para la realización del taller</li>
@@ -490,6 +494,94 @@ import &#39;cypress-mochawesome-reporter/register&#39;;
 <li>Integrar este repositorio con GitHub Actions o Jenkins.</li>
 <li>Añadir pruebas de API (<code>cy.request</code>).</li>
 <li>Configurar Docker para ejecutar esto en un contenedor aislado.</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Desafíos Técnicos" duration="0">
+        <p>Has seguido la guía y todo funciona. Ahora es momento de soltar la mano del instructor. A continuación, encontrarás 3 desafíos diseñados para simular requerimientos reales de un Sprint de Automatización.</p>
+<p><strong>Regla de Oro:</strong> Intenta resolverlos ejecutando <strong>solamente</strong> en modo Headless (<code>npx cypress run</code>). Confía en tus logs y screenshots.</p>
+<aside class="special"><p> Nota: En la siguiente sección puedes encontrar recursos adicionales de la documentación oficial, de la cual te puedes apoyar para resolver estos problemas </p>
+</aside>
+<h2 is-upgraded><strong>Desafío 1: El Flujo Completo (E2E)</strong></h2>
+<p><strong>Contexto:</strong></p>
+<p>El equipo de negocio dice que el <em>Login</em> está bien, pero necesitamos asegurar que la gente pueda gastar dinero.</p>
+<p><strong>Misión:</strong></p>
+<p>Crea un nuevo test (<code>checkout.cy.js</code>) que realice el flujo completo de compra:</p>
+<ol type="1">
+<li>Login (<em>Usuario Standard</em>).</li>
+<li>Agregar un producto al carrito (ej: <em>&#34;Sauce Labs Backpack&#34;</em>).</li>
+<li>Ir al carrito y proceder al <em>Checkout</em>.</li>
+<li>Llenar el formulario de envío (Nombre, Apellido, Zip).</li>
+<li>Finalizar la orden.</li>
+<li><strong>Validación Final:</strong> Verificar que aparezca el mensaje <em>&#34;Thank you for your order!&#34;</em>.</li>
+</ol>
+<p><strong>Pistas:</strong></p>
+<ul>
+<li>Deberás extender tu POM o crear nuevas clases (<code>CartPage</code>, <code>CheckoutPage</code>) para mantener el orden.</li>
+<li>El botón de <em>&#34;Checkout&#34;</em> solo es visible después de entrar al carrito.</li>
+<li><strong>Comando útil: </strong><code>cy.contains('text').click()</code> puede salvarte si no quieres buscar selectores complejos para textos únicos.</li>
+</ul>
+<h2 is-upgraded><strong>Desafío 2: Seguridad en CI/CD (Variables de Entorno)</strong></h2>
+<p><strong>Contexto:</strong></p>
+<p>El equipo de Seguridad Informática ha detectado que estamos guardando la contraseña <code>"secret_sauce"</code> en el archivo <code>users.json</code> y lo estamos subiendo al repositorio git. ¡Eso es una vulnerabilidad!</p>
+<p><strong>Misión:</strong></p>
+<p>Refactoriza tu código para que la contraseña <strong>NO</strong> esté escrita en ningún archivo del proyecto. Debe ser inyectada desde la terminal al momento de ejecutar la prueba.</p>
+<p><strong>Requerimientos:</strong></p>
+<ol type="1">
+<li>Elimina la contraseña del archivo <code>users.json</code> (déjalo vacío o bórralo).</li>
+<li>Modifica el <code>LoginPage.js</code> o el test para leer la contraseña usando <code>Cypress.env(...)</code>.</li>
+<li>Ejecuta el test pasando la contraseña a través de la CLI.</li>
+</ol>
+<p><strong>Pistas:</strong></p>
+<ul>
+<li>Investiga el objeto global <code>Cypress.env</code>.</li>
+<li>Investiga el flag <code>--env</code> de la CLI de Cypress.</li>
+<li>Tu comando de ejecución debería verse algo así:<code>npx cypress run --env password="secret_sauce"</code></li>
+</ul>
+<h2 is-upgraded><strong>Desafío 3: El Misterio del Menú (Debugging Avanzado)</strong></h2>
+<p><strong>Contexto:</strong></p>
+<p>Un desarrollador Junior reporta que el test del menú lateral (<em>&#34;Burger Menu&#34;</em>) es inestable (<em>flaky</em>). A veces funciona, a veces falla.</p>
+<p><strong>Misión:</strong></p>
+<p>Copia el siguiente código &#34;roto&#34; en un archivo llamado <code>menu_debug.cy.js</code>. Ejecútalo en modo <em>Headless</em>, analiza el error (Screenshot y Video) y corrígelo.</p>
+<p><strong>Código Roto (Cópialo tal cual):</strong></p>
+<pre><code language="language-jsx" class="language-jsx">describe(&#39;Debugging Challenge&#39;, () =&gt; {
+  it(&#39;Debe abrir el menú y hacer logout&#39;, () =&gt; {
+    cy.visit(&#39;https://www.saucedemo.com&#39;);
+    cy.get(&#39;[data-test=&#34;username&#34;]&#39;).type(&#39;standard_user&#39;);
+    cy.get(&#39;[data-test=&#34;password&#34;]&#39;).type(&#39;secret_sauce&#39;);
+    cy.get(&#39;[data-test=&#34;login-button&#34;]&#39;).click();
+
+    // Intentamos abrir el menú
+    cy.get(&#39;#react-burger-menu-btn&#39;).click();
+
+    // Intentamos hacer click en Logout inmediatamente
+    // EL ERROR ESTÁ AQUÍ ⬇
+    cy.get(&#39;#logout_sidebar_link&#39;).click(); 
+    
+    cy.url().should(&#39;eq&#39;, &#39;https://www.saucedemo.com/&#39;);
+  });
+});
+</code></pre>
+<p><strong>Preguntas para resolverlo:</strong></p>
+<ol type="1">
+<li>Ejecuta <code>npx cypress run --spec ...</code></li>
+<li>Mira el Screenshot del error. ¿El menú lateral se ve completamente abierto?</li>
+<li>Mira el error en la consola: <code>*cy.click() failed because this element is not visible* o *covered by another element*</code>.</li>
+<li><strong>Solución:</strong> ¿Qué comando de Cypress nos permite esperar a que una animación termine o forzar una acción? (Hay dos formas de arreglarlo: la elegante y la bruta).</li>
+</ol>
+<h2 is-upgraded><strong>Soluciones Sugeridas (¡No mires hasta intentar!)</strong></h2>
+<p><strong>Para el Desafío 2 (Variables de Entorno):</strong></p>
+<ul>
+<li>En el código: <code>loginPage.login(this.users.standard.username, Cypress.env('password'));</code></li>
+<li>En la terminal: <code>npx cypress run --env password=secret_sauce</code></li>
+</ul>
+<p><strong>Para el Desafío 3 (Debugging):</strong></p>
+<ul>
+<li><em>El problema:</em> El menú tiene una animación de deslizamiento que tarda unos 500ms. Cypress intenta hacer click en <em>&#34;Logout&#34;</em> antes de que el enlace sea interactuable.</li>
+<li><em>Solución 1 (Correcta):</em> Asegurar que el menú es visible antes de clickear. <code>cy.get('#logout_sidebar_link').should('be.visible').click();</code></li>
+<li><em>Solución 2 (Fuerza Bruta):</em> Forzar el click aunque esté animándose. <code>cy.get('#logout_sidebar_link').click({ force: true });</code></li>
 </ul>
 
 
