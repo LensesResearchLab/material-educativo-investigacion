@@ -1,0 +1,1017 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>GUI Ripping con Playwright</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14" ga4id=""></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  codelab-ga4id=""
+                  id="ripper_playwright"
+                  title="GUI Ripping con Playwright"
+                  environment="web"
+                  feedback-link="https://github.com/LensesResearchLab/material-educativo-investigacion/issues">
+    
+      <google-codelab-step label="Fundamentos de GUI Ripping" duration="0">
+        <p>&#34;El Monkey Testing golpea la puerta con un martillo para ver si se rompe. El GUI Ripping abre todas las puertas, dibuja un mapa de la casa y verifica si alguna habitación tiene goteras.&#34;</p>
+<h2 is-upgraded><strong>La Evolución de la Automatización</strong></h2>
+<p>Para entender por qué necesitamos <strong>GUI Ripping</strong>, miremos nuestro viaje hasta ahora:</p>
+<ol type="1">
+<li><strong>E2E Scripting (Cypress):</strong> Somos <strong>Francotiradores</strong>. Conocemos el objetivo exacto (<code>Login -> Checkout</code>) y escribimos un guion preciso. Si el diseño cambia, el script falla. <ul>
+<li><em>Limitación:</em> Solo probamos lo que ya sabemos que existe.</li>
+</ul>
+</li>
+<li><strong>Monkey Testing (WebdriverIO):</strong> Somos <strong>Caos</strong>. Bombardeamos la aplicación con eventos aleatorios buscando robustez. <ul>
+<li><em>Limitación:</em> Es probabilístico. Puede que pasen 1,000 años y el mono nunca haga la combinación exacta de clicks para entrar al menú de <em>&#34;Configuración Avanzada&#34;</em>.</li>
+</ul>
+</li>
+<li><strong>GUI Ripping (Playwright):</strong> Somos <strong>Cartógrafos</strong>. El objetivo es la <strong>Exploración Sistemática</strong>. Queremos visitar el 100% de los estados de la aplicación de manera determinista, sin escribir un test para cada pantalla.</li>
+</ol>
+<table>
+<tr><td colspan="1" rowspan="1"><p>Fase</p>
+</td><td colspan="1" rowspan="1"><p>Tipo de exploración</p>
+</td><td colspan="1" rowspan="1"><p>Naturaleza</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>E2E</p>
+</td><td colspan="1" rowspan="1"><p>Scripted</p>
+</td><td colspan="1" rowspan="1"><p>Determinística</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>Monkey</p>
+</td><td colspan="1" rowspan="1"><p>Random</p>
+</td><td colspan="1" rowspan="1"><p>Estocástica</p>
+</td></tr>
+<tr><td colspan="1" rowspan="1"><p>Ripper</p>
+</td><td colspan="1" rowspan="1"><p>Systematic</p>
+</td><td colspan="1" rowspan="1"><p>Exhaustiva / Model-based</p>
+</td></tr>
+</table>
+<h2 is-upgraded><strong>¿Qué es GUI Ripping?</strong></h2>
+<p>El término <em>&#34;Ripping&#34;</em> (del inglés <em>to rip</em>, arrancar o extraer) se refiere a la técnica de <strong>Ingeniería Inversa</strong> de la interfaz gráfica.</p>
+<p>Un <strong>Ripper</strong> es un robot de software que navega automáticamente por la aplicación gráfica (GUI), &#34;arrancando&#34; información sobre sus ventanas, botones y campos de texto para construir un <strong>Modelo (Grafo)</strong> del comportamiento del sistema.</p>
+<p><strong>El ciclo de vida de un Ripper:</strong></p>
+<ol type="1">
+<li><strong>Introspección:</strong> Mira la pantalla actual y detecta todos los elementos interactivos (botones, enlaces, inputs).</li>
+<li><strong>Ejecución:</strong> Elige uno de esos elementos y lo activa (click).</li>
+<li><strong>Observación:</strong> Analiza si la pantalla cambió (Nuevo Estado) o si ocurrió un error.</li>
+<li><strong>Modelado:</strong> Registra el hallazgo en un mapa y repite el proceso.</li>
+</ol>
+<h2 is-upgraded><strong>Teoría de Grafos para QA (States &amp; Transitions)</strong></h2>
+<p>Para construir un Ripper, debemos pensar en la aplicación como un <strong>Grafo Dirigido</strong> (<code>G=(V,E)</code>).</p>
+<h2 is-upgraded>Nodos (V - Vértices) = Estados</h2>
+<p>Un <strong>Estado</strong> no es solo la URL. Dos usuarios pueden estar en <code>/dashboard</code>, pero uno ve un mensaje de error y el otro una tabla de datos. Son estados visuales distintos.</p>
+<ul>
+<li><strong>Identificación (Fingerprinting):</strong> El Ripper necesita saber: <em>&#34;¿Ya estuve aquí?&#34;</em>. Para esto, generamos una &#34;huella digital&#34; del estado, usualmente un <strong>Hash del DOM</strong> (estructura HTML) o de la URL + Título.</li>
+</ul>
+<h2 is-upgraded>Aristas (E - Bordes) = Transiciones</h2>
+<p>Una <strong>Transición</strong> es el evento que nos mueve de un estado A a un estado B.</p>
+<ul>
+<li>Ejemplo: Un click en el botón &#34;Login&#34; es la arista que conecta el nodo <em>Página de Login</em> con el nodo <em>Dashboard</em>.</li>
+</ul>
+<p class="image-container"><img alt="img-00" src="img/4189fb5012734436.png"></p>
+<h2 is-upgraded><strong>Algoritmos de Exploración: ¿Cómo no perderse?</strong></h2>
+<p>Si soltamos al robot en una aplicación grande, ¿cómo aseguramos que visite todo sin quedarse atrapado en un bucle infinito (ej: <code>Calendario Siguiente -> Siguiente -> Siguiente...</code>)?</p>
+<p>Existen dos estrategias clásicas:</p>
+<ol type="1">
+<li><strong>DFS (Depth-First Search - Búsqueda en Profundidad)</strong></li>
+</ol>
+<p>El robot elige un camino y lo sigue hasta el final (o hasta un límite de profundidad) antes de retroceder.</p>
+<ul>
+<li><em>Comportamiento: </em><code>Login -> Producto 1 -> Detalle -> Comprar -> Checkout -> Pagar...</code> (y luego vuelve para ver el <code>Producto 2</code>).</li>
+<li><em>Riesgo:</em> Puede quedarse atrapado en flujos muy largos y nunca ver la página principal completa.</li>
+</ul>
+<ol type="1">
+<li><strong>BFS (Breadth-First Search - Búsqueda en Anchura) </strong><strong><em>Nuestra Elección</em></strong></li>
+</ol>
+<p>El robot explora todos los vecinos inmediatos antes de profundizar.</p>
+<ul>
+<li><em>Comportamiento:</em> Estando en el <code>Dashboard</code>, hace click en TODOS los botones del menú uno por uno, registrando a dónde llevan, antes de entrar a navegar dentro de esas sub-páginas.</li>
+<li><em>Ventaja:</em> Descubre rápidamente la estructura general de la aplicación (&#34;El esqueleto&#34;). Es más seguro para evitar &#34;agujeros negros&#34; de navegación.</li>
+</ul>
+<h2 is-upgraded><strong>El Oráculo (¿Cómo sabemos si falló?)</strong></h2>
+<p>En un test E2E manual, tú escribes <code>expect(título).toBe('Éxito')</code>.</p>
+<p>En un Ripper, el robot no sabe qué es &#34;correcto&#34; y qué no. Necesitamos <strong>Oráculos Genéricos</strong>:</p>
+<ol type="1">
+<li><strong>Crash Oracle:</strong> ¿Apareció la pantalla blanca de la muerte?</li>
+<li><strong>HTTP Oracle:</strong> ¿Alguna petición de red devolvió 404 (Not Found) o 500 (Server Error)?</li>
+<li><strong>Console Oracle:</strong> ¿Hay errores de JavaScript rojos en la consola del navegador?</li>
+<li><strong>Dead End Oracle:</strong> ¿Llegué a un estado del que no puedo salir (trampa)?</li>
+</ol>
+<h2 is-upgraded><strong>¿Por qué Playwright?</strong></h2>
+<p>Para este taller usaremos <strong>Playwright</strong> por razones técnicas específicas que superan a Selenium/Cypress para esta tarea:</p>
+<ol type="1">
+<li><strong>Velocidad de Ejecución:</strong> Playwright usa el protocolo DevTools directamente (WebSockets), lo que permite escanear el DOM milisegundos más rápido que WebDriver. En un Ripper que hace 10,000 clicks, esto ahorra horas.</li>
+<li><strong>Auto-Waiting &amp; Locators:</strong> Playwright espera automáticamente a que los elementos sean &#34;estables&#34; antes de hacer click. Esto reduce la fragilidad (<em>flakiness</em>) cuando el Ripper navega muy rápido.</li>
+<li><strong>Manejo de Contextos:</strong> Podemos abrir múltiples pestañas o contextos de navegador en paralelo muy fácilmente.</li>
+<li><strong>Network Interception:</strong> Tiene una API nativa muy potente para escuchar el tráfico de red y detectar los errores 404/500 (nuestro Oráculo) sin librerías extra.</li>
+</ol>
+<p>El objetivo de este taller no es reemplazar tus pruebas funcionales. Un Ripper no sabrá si el cálculo de impuestos es correcto.</p>
+<p>El objetivo es Cobertura Topológica: Asegurar que no existan &#34;enlaces rotos&#34; ni &#34;pantallas de error&#34; ocultas en tu aplicación antes de liberar una versión.</p>
+<aside class="special"><p> ¿Listos para construir nuestro propio explorador autónomo? Pasemos a la Configuración del Entorno. </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Configuración y Arquitectura del Ripper" duration="0">
+        <p>A diferencia de los talleres anteriores donde escribíamos scripts sueltos, aquí vamos a <strong>construir una herramienta</strong>. Un Ripper es una pieza de software compleja que necesita gestionar memoria (qué ya visité), cola de tareas (qué me falta visitar) y reporte de errores. Por ello, la arquitectura de nuestro código será fundamental.</p>
+<p>En este módulo, no solo instalaremos Playwright. Vamos a diseñar la <strong>Clase Maestra</strong> que gobernará la exploración. Pasaremos de escribir &#34;tests lineales&#34; a escribir un &#34;algoritmo de grafos&#34;.</p>
+<h2 is-upgraded><strong>Inicialización del Proyecto (Playwright)</strong></h2>
+<p>Comenzaremos con un proyecto limpio. <em>Playwright</em> tiene un inicializador excelente que configura TypeScript/JavaScript y descarga los navegadores necesarios.</p>
+<ol type="1">
+<li>Crea una carpeta dedicada para este taller.</li>
+<li>Abre la terminal en esa carpeta.</li>
+<li>Ejecuta el comando de inicialización:</li>
+</ol>
+<pre><code language="language-bash" class="language-bash">npm init playwright@latest
+</code></pre>
+<h2 is-upgraded>Configuración recomendada para el asistente:</h2>
+<pre><code language="language-bash" class="language-bash">Getting started with writing end-to-end tests with Playwright:
+Initializing project in &#39;.&#39;
+✔ Do you want to use TypeScript or JavaScript? · JavaScript
+✔ Where to put your end-to-end tests? · tests
+✔ Add a GitHub Actions workflow? (Y/n) · false
+✔ Install Playwright browsers (can be done manually via &#39;npx playwright install&#39;)? (Y/n) · true
+</code></pre>
+<p>Una vez termine, limpia el proyecto: borra el archivo <code>tests/example.spec.js</code>.</p>
+<h2 is-upgraded><strong>Configuración del Motor (</strong><strong><code>playwright.config.js</code></strong><strong>)</strong></h2>
+<p>Un Ripper se comporta muy diferente a una prueba unitaria. Puede tardar minutos u horas explorando. Necesitamos ajustar el archivo de configuración para evitar que <em>Playwright</em> &#34;mate&#34; al proceso por tardar demasiado (<em>Timeouts</em>).</p>
+<p>Abre <code>playwright.config.js</code> y ajusta lo siguiente:</p>
+<pre><code language="language-jsx" class="language-jsx">import { defineConfig, devices } from &#39;@playwright/test&#39;;
+
+export default defineConfig({
+  testDir: &#39;./tests&#39;,
+  
+  // 2. PARALELISMO:
+  // Importante: Un Ripper suele ser secuencial (Fully Parallel = false)
+  // porque comparte estado (la cola de URLs).
+  fullyParallel: false, 
+  
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: &#39;html&#39;,
+  use: {
+    // URL Base de Swag Labs
+    baseURL: &#39;https://www.saucedemo.com&#39;,
+
+    // 3. ARTEFACTOS DE DEPURACIÓN:
+    // Queremos ver el Trace solo si el Ripper falla o encuentra un error.
+    trace: &#39;retain-on-failure&#39;,
+    screenshot: &#39;only-on-failure&#39;,
+    video: &#39;retain-on-failure&#39;,
+  },
+  projects: [
+    {
+      name: &#39;chromium&#39;,
+      use: { ...devices[&#39;Desktop Chrome&#39;] },
+    },
+    {
+      name: &#39;firefox&#39;,
+      use: { ...devices[&#39;Desktop Firefox&#39;] },
+    },
+    {
+      name: &#39;webkit&#39;,
+      use: { ...devices[&#39;Desktop Safari&#39;] },
+    },
+  ],
+});
+</code></pre>
+<h2 is-upgraded><strong>Arquitectura de Software: La Clase </strong><strong><code>Ripper</code></strong></h2>
+<p>Aquí es donde nos separamos de un tutorial básico. No vamos a escribir un script plano. Vamos a crear una <strong>Clase</strong> que encapsule la lógica del grafo.</p>
+<p><strong>Concepto: El Vector de Estado</strong></p>
+<p>El <em>Ripper</em> necesita memoria.</p>
+<ol type="1">
+<li><strong><code>visited</code></strong><strong> (Set):</strong> Un conjunto de URLs o Hashes que ya visitamos para no entrar en bucles infinitos.</li>
+<li><strong><code>queue</code></strong><strong> (Array):</strong> Una lista FIFO (First-In, First-Out) de estados pendientes por explorar.</li>
+<li><strong><code>graph</code></strong><strong> (Map):</strong> La estructura de datos donde guardaremos el mapa resultante (<code>Nodo A -> Nodo B</code>).</li>
+</ol>
+<p>Crea una carpeta <code>src</code> en la raíz y dentro un archivo <code>Ripper.js</code>.</p>
+<pre><code language="language-jsx" class="language-jsx">/**
+ * El Cartógrafo Digital.
+ * Responsable de navegar, catalogar y reportar el estado de la aplicación.
+ */
+export class Ripper {
+  constructor(page, baseUrl) {
+    this.page = page; // La instancia del navegador de Playwright
+    this.baseUrl = baseUrl;
+
+    // MEMORIA DEL ROBOT
+    // Usamos un Set para búsquedas O(1) súper rápidas
+    this.visitedUrls = new Set();
+
+    // LA COLA DE TAREAS (Frontier)
+    // Aquí guardamos las URLs que descubrimos pero aún no visitamos
+    this.queue = [];
+
+    // EL MAPA RESULTANTE (Grafo)
+    // Estructura: { &#39;url_origen&#39;: [&#39;url_destino_1&#39;, &#39;url_destino_2&#39;] }
+    this.adjacencyList = new Map();
+  }
+
+  /**
+   * Método principal que inicia la exploración BFS
+   */
+  async start() {
+    console.log(`Iniciando exploración en: ${this.baseUrl}`);
+
+    // 1. Semilla inicial
+    this.queue.push(this.baseUrl);
+
+    // 2. Bucle de Exploración (El corazón del Ripper)
+    while (this.queue.length &gt; 0) {
+      // Extraemos el siguiente nodo (BFS)
+      const currentUrl = this.queue.shift();
+
+      // Si ya lo visitamos, lo saltamos (Poda del grafo)
+      if (this.visitedUrls.has(currentUrl)) continue;
+
+      // Exploramos el nodo
+      await this.visitAndExtract(currentUrl);
+    }
+
+    this.report();
+  }
+
+  /**
+   * Visita una URL y extrae nuevos enlaces (Transiciones)
+   * @param {string} url 
+   */
+  async visitAndExtract(url) {
+    // Marcamos como visitado ANTES de ir para evitar condiciones de carrera
+    this.visitedUrls.add(url);
+
+    try {
+      console.log(`Visitando: ${url}`);
+      await this.page.goto(url, { waitUntil: &#34;domcontentloaded&#34; });
+
+      // AQUÍ OCURRIRÁ LA MAGIA EN EL SIGUIENTE MÓDULO
+      // 1. Detectar errores (404, consola)
+      // 2. Extraer enlaces
+      // 3. Agregarlos a la cola
+
+    } catch (error) {
+      console.error(`Error visitando ${url}: ${error.message}`);
+    }
+  }
+
+  report() {
+    console.log(&#34;--- FIN DE LA EXPLORACIÓN ---&#34;);
+    console.log(`Nodos visitados: ${this.visitedUrls.size}`);
+  }
+}
+</code></pre>
+<h2 is-upgraded><strong>El Punto de Entrada (El Test Runner)</strong></h2>
+<p>Ahora necesitamos conectar nuestra Clase con el ejecutor de pruebas de <em>Playwright</em>. Aunque es un <em>&#34;Crawler&#34;</em>, lo ejecutaremos como un test para aprovechar los reportes HTML y los Traces.</p>
+<p>Crea un archivo <code>tests/crawler.spec.js</code>:</p>
+<pre><code language="language-jsx" class="language-jsx">import { test } from &#39;@playwright/test&#39;;
+import { Ripper } from &#39;../src/Ripper&#39;;
+
+test.describe(&#39;Systematic Exploration&#39;, () =&gt; {
+
+  test(&#39;Debe mapear la aplicación completa (BFS)&#39;, async ({ page, baseURL }) =&gt; {
+    // Aumentamos el timeout del test específicamente
+    test.setTimeout(120000); 
+
+    // Instanciamos nuestro bot explorador
+    const ripper = new Ripper(page, baseURL);
+
+    // ¡Liberamos al Kraken!
+    await ripper.start();
+  });
+
+});
+</code></pre>
+<h2 is-upgraded><strong>Validación de Arquitectura</strong></h2>
+<p>Vamos a verificar que el esqueleto funciona.</p>
+<p>Ejecuta el test en tu terminal. Debería visitar la URL base, imprimir el log y terminar.</p>
+<pre><code language="language-bash" class="language-bash">npx playwright test
+</code></pre>
+<p>Deberías ver en la consola:</p>
+<p class="image-container"><img alt="img-01" src="img/ce2729aa582eeb80.png"></p>
+<p>Hemos creado un &#34;Single Page Crawler&#34;. Visita la URL inicial, la marca como visitada y termina porque no hemos implementado la lógica para <strong>extraer</strong> nuevos enlaces (<code>visitAndExtract</code> está vacío de lógica de extracción).</p>
+<p>La estructura <code>while (queue.length > 0)</code> es la base de un algoritmo <strong>BFS (Breadth-First Search)</strong>. En el siguiente módulo, llenaremos esa función para que el robot tenga &#34;ojos&#34; y pueda ver a dónde ir después.</p>
+<aside class="special"><p> Vamos a hacer que nuestro motor tenga &#34;ojos&#34;, vamos a implementar nuestro Motor de Exploración </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="El Motor de Exploración - Extracción y Normalización" duration="0">
+        <p>Ahora que el robot &#34;camina&#34; (visita la URL inicial), necesitamos darle &#34;ojos&#34; para que vea a dónde ir después.</p>
+<p>El mayor desafío de un Ripper no es hacer click, es <strong>interpretar los enlaces</strong>.</p>
+<ul>
+<li>Un enlace puede ser absoluto: <code>https://google.com</code> (No queremos ir ahí, salimos del alcance).</li>
+<li>Un enlace puede ser relativo: <code>/inventory.html</code>.</li>
+<li>Un enlace puede ser una acción JS: <code>javascript:void(0)</code>.</li>
+</ul>
+<p>En este módulo implementaremos la lógica de <strong>Extracción</strong> (<code>Extract</code>) del algoritmo.</p>
+<h2 is-upgraded><strong>Teoría: Greedy Link Extraction</strong></h2>
+<p>Usaremos una estrategia voraz (Greedy). Escanearemos el DOM buscando todo lo que parezca un enlace (<code>&lt;a href="..."&gt;</code>) y lo añadiremos a la cola de procesamiento.</p>
+<p><strong>Reglas del Cartógrafo:</strong></p>
+<ol type="1">
+<li><strong>Normalización:</strong> Convertir todo enlace relativo (<code>/cart.html</code>) a absoluto (<code>https://saucedemo.com/cart.html</code>) para poder compararlos correctamente en el Set de <code>visitedUrls</code>.</li>
+<li><strong>Filtrado de Dominio:</strong> Si el enlace nos lleva fuera de saucedemo.com, lo ignoramos. No queremos mapear todo Internet.</li>
+<li><strong>Filtrado de Recursos:</strong> Ignorar enlaces a imágenes (<code>.jpg</code>), PDFs (<code>.pdf</code>) o correos (<code>mailto:</code>).</li>
+</ol>
+<h2 is-upgraded><strong>Actualizando la Clase </strong><strong><code>Ripper</code></strong></h2>
+<p>Vamos a &#34;vitaminizar&#34; nuestra clase. Agregaremos métodos auxiliares para extraer enlaces y normalizarlos.</p>
+<p>Modifica <code>src/Ripper.js</code> con el siguiente código mejorado.</p>
+<p><strong>Paso 1: Mejorar </strong></p>
+<p><strong><code>visitAndExtract</code></strong></p>
+<p>Ahora, en lugar de solo visitar, vamos a &#34;minar&#34; la página en busca de oro (URLs).</p>
+<pre><code language="language-jsx" class="language-jsx">export class Ripper {
+  ...
+  
+  async visitAndExtract(url) {
+    this.visitedUrls.add(url);
+    
+    try {
+      console.log(`Visitando: ${url}`);
+      await this.page.goto(url, { waitUntil: &#39;networkidle&#39; }); // Esperamos a que la red se calme
+
+      // 1. EXTRAER ENLACES (Mining)
+      const newLinks = await this.extractLinks();
+      
+      // 2. PROCESAR ENLACES
+      console.log(`   -&gt; Encontrados ${newLinks.length} enlaces nuevos.`);
+      
+      for (const link of newLinks) {
+        // Solo agregamos a la cola si NO lo hemos visitado y NO está ya en la cola
+        if (!this.visitedUrls.has(link) &amp;&amp; !this.queue.includes(link)) {
+          this.queue.push(link);
+          
+          // Guardamos la relación en el grafo (Padre -&gt; Hijo)
+          if (!this.adjacencyList.has(url)) {
+            this.adjacencyList.set(url, []);
+          }
+          this.adjacencyList.get(url).push(link);
+        }
+      }
+
+    } catch (error) {
+      console.error(`Error procesando ${url}: ${error.message}`);
+    }
+  }
+
+  ...
+}
+</code></pre>
+<p><strong>Paso 2: Crear el método </strong></p>
+<p><strong><code>extractLinks</code></strong></p>
+<p>Este es el &#34;ojo&#34; del robot. Usaremos <code>page.evaluate</code> para ejecutar código directamente en el contexto del navegador (Browser Context), lo cual es muchísimo más rápido que pedir los elementos uno por uno a través del protocolo de <em>Playwright</em>.</p>
+<p>Agrega este método dentro de la clase <code>Ripper</code>:</p>
+<pre><code language="language-jsx" class="language-jsx">/**
+   * Extrae todos los href válidos de la página actual.
+   * Ejecuta JS dentro del navegador para máxima velocidad.
+   */
+  async extractLinks() {
+    return await this.page.evaluate((baseUrl) =&gt; {
+      // 1. Buscamos todos los tags &lt;a&gt; con atributo href
+      const anchors = Array.from(document.querySelectorAll(&#39;a[href]&#39;));
+      
+      return anchors
+        .map(a =&gt; a.href) // Obtenemos la URL absoluta directamente del navegador
+        .filter(href =&gt; {
+          // --- FILTROS DE SEGURIDAD ---
+          
+          // 1. Debe pertenecer al mismo dominio (Scope)
+          if (!href.startsWith(baseUrl)) return false;
+          
+          // 2. Ignorar anclas vacías o javascript
+          if (href.includes(&#39;javascript:&#39;) || href === baseUrl + &#39;#&#39; || href === baseUrl + &#39;/&#39;) return false;
+          
+          // 3. Ignorar archivos estáticos (opcional)
+          if (href.endsWith(&#39;.pdf&#39;) || href.endsWith(&#39;.png&#39;)) return false;
+
+          return true;
+        })
+        // Eliminamos duplicados en la misma página (Set dentro de Array)
+        .filter((value, index, self) =&gt; self.indexOf(value) === index);
+        
+    }, this.baseUrl);
+  }
+</code></pre>
+<h2 is-upgraded><strong>El Problema del Login (La Barrera)</strong></h2>
+<p>Si ejecutamos el <em>Ripper</em> ahora mismo sobre <em>Swag Labs</em>, pasará algo aburrido:</p>
+<ol type="1">
+<li>Visitará el <em>Login</em>.</li>
+<li>No encontrará enlaces (<code>&lt;a&lg;</code>), porque el botón de login es un <code>&lt;input type="submit"&gt;</code> o un botón que ejecuta un form, y <em>Swag Labs</em> no tiene enlaces de navegación en la portada (salvo quizás redes sociales que filtramos).</li>
+<li>El <em>Ripper</em> terminará.</li>
+</ol>
+<p>Para que el <em>Ripper</em> sea útil, <strong>debe estar autenticado</strong>.</p>
+<p>Vamos a agregar un método de login manual a la clase, para llamarlo antes de empezar a ripear.</p>
+<p>Agrega este método a <code>src/Ripper.js</code>:</p>
+<pre><code language="language-jsx" class="language-jsx">/**
+   * Método auxiliar para romper la barrera de entrada.
+   * Un Ripper necesita credenciales para explorar zonas privadas.
+   */
+  async login() {
+    console.log(&#39;Iniciando sesión para acceder al sistema...&#39;);
+    await this.page.goto(this.baseUrl);
+    
+    // Selectores específicos de Swag Labs
+    await this.page.fill(&#39;[data-test=&#34;username&#34;]&#39;, &#39;standard_user&#39;);
+    await this.page.fill(&#39;[data-test=&#34;password&#34;]&#39;, &#39;secret_sauce&#39;);
+    await this.page.click(&#39;[data-test=&#34;login-button&#34;]&#39;);
+    
+    // Esperamos a ver el inventario
+    await this.page.waitForURL(&#39;**/inventory.html&#39;);
+    console.log(&#39;Login exitoso. Comenzando exploración.&#39;);
+    
+    // Reiniciamos la cola con la nueva URL post-login
+    this.queue = [this.page.url()];
+    this.visitedUrls.clear(); // Limpiamos para empezar el mapa desde dentro
+  }
+</code></pre>
+<h2 is-upgraded><strong>Actualizando el Test Runner</strong></h2>
+<p>Finalmente, actualizamos <code>tests/crawler.spec.js</code> para usar el login.</p>
+<pre><code language="language-jsx" class="language-jsx">import { test } from &#39;@playwright/test&#39;;
+import { Ripper } from &#39;../src/Ripper&#39;;
+
+test.describe(&#39;Systematic Exploration&#39;, () =&gt; {
+
+  test(&#39;Debe mapear la aplicación completa (BFS) post-login&#39;, async ({ page, baseURL }) =&gt; {
+    // Aumentamos el timeout del test específicamente
+    test.setTimeout(120000); 
+
+    // Instanciamos nuestro bot explorador
+    const ripper = new Ripper(page, baseURL);
+
+    // 1. Rompemos la seguridad
+    await ripper.login();
+
+    // 2. Liberamos al Kraken en zona segura
+    await ripper.start();
+  });
+
+});
+</code></pre>
+<h2 is-upgraded><strong>Ejecución y Análisis del Grafo</strong></h2>
+<p>Ejecuta:</p>
+<p>Nota: para facilidad del tutorial, solo ejecutaremos la prueba en un solo navegador</p>
+<pre><code language="language-bash" class="language-bash">npx playwright test --project=chromium
+</code></pre>
+<p><strong>Lo que deberías ver:</strong></p>
+<p class="image-container"><img alt="img-02" src="img/d3c3720794e15761.png"></p>
+<p>Fíjate que el robot visita los enlaces, pero... ¿cómo vuelve?</p>
+<p>En BFS, el robot abre la URL. Si la página de detalle de producto tiene un botón <em>&#34;Back to products&#34;</em>, lo detectará como un enlace y lo agregará a la cola.</p>
+<p>Pero si el botón <em>&#34;Add to cart&#34;</em> no es un <code>&lt;a&gt;</code> (es un <code>&lt;button&gt;</code>), nuestro método <code>extractLinks</code> actual lo ignora.</p>
+<p><strong>Limitación actual:</strong> Nuestro <em>Ripper</em> solo sigue enlaces de hipertexto (<code>href</code>). En aplicaciones modernas (SPA), muchos botones (<code>&lt;button&gt;</code>) cambian el estado.</p>
+<p>En el siguiente módulo, haremos al <em>Ripper</em> más agresivo para que interactúe también con botones.</p>
+<aside class="special"><p> ¿Estás listo para transformar nuestro robot de un &#34;Lector de Enlaces&#34; (Static Analyzer) a un &#34;Explorador Activo&#34; (Dynamic Analyzer)? </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Heurística y Profundidad - Exploración Activa" duration="0">
+        <p>En este módulo, enseñaremos al Ripper a lidiar con la incertidumbre. Si un enlace no dice a dónde va (<code>href="#"</code>), el robot debe tener la curiosidad de <strong>hacer clic para averiguarlo</strong>.</p>
+<h2 is-upgraded><strong>Teoría: Análisis Estático vs Dinámico</strong></h2>
+<ol type="1">
+<li><strong>Análisis Estático (Lo que teníamos):</strong> Mirar el HTML (<code>&lt;a href="/cart"&gt;</code>) y anotar la dirección. Es rápido y seguro, pero falla en Apps modernas.</li>
+<li><strong>Análisis Dinámico (Lo que haremos):</strong> Interactuar con el elemento. <ul>
+<li>Hacer Clic.</li>
+<li>Observar si la URL cambió.</li>
+<li>Si cambió, anotar la nueva URL.</li>
+<li><strong>Retroceder (Backtrack)</strong> para seguir probando los otros botones de la página original.</li>
+</ul>
+</li>
+</ol>
+<h2 is-upgraded><strong>La Estrategia &#34;Click &amp; Back&#34;</strong></h2>
+<p>Modificaremos la clase <code>Ripper</code> para que, cuando visite una página, ejecute una rutina de descubrimiento:</p>
+<ol type="1">
+<li>Identificar elementos &#34;misteriosos&#34; (enlaces con <code>#</code> o sin <code>href</code>).</li>
+<li>Para cada elemento: <ul>
+<li>Guardar la URL actual.</li>
+<li>Hacer Clic.</li>
+<li>Esperar un momento.</li>
+<li>¿Cambió la URL? <ul>
+<li><strong>SÍ:</strong> ¡Nuevo estado descubierto! Agrégalo a la cola queue.</li>
+<li><strong>NO:</strong> Fue un clic inútil (o un modal que no cambia URL).</li>
+</ul>
+</li>
+<li>Regresar a la página original (<code>page.goBack()</code> o volver a navegar) para probar el siguiente botón.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Código: Implementando la Exploración Activa</strong></p>
+<p>Vamos a modificar <code>src/Ripper.js</code>. Esta es una cirugía mayor en el método <code>visitAndExtract</code>.</p>
+<p><strong>Paso 1: Nuevo método </strong></p>
+<p><strong><code>exploreDynamicLinks</code></strong></p>
+<p>Agrega este método a tu clase <code>Ripper</code>. Este método busca elementos interactivos que NO son enlaces claros y los prueba.</p>
+<pre><code language="language-jsx" class="language-jsx">/**
+   * Intenta descubrir estados ocultos haciendo clic en elementos ambiguos.
+   * Estrategia: Click -&gt; Check URL -&gt; Backtrack
+   */
+  async exploreDynamicLinks(currentUrl) {
+    console.log(&#39;   Iniciando exploración dinámica (Click &amp; Back)...&#39;);
+    
+    // 1. Identificar candidatos (Heurística: Títulos de productos en SwagLabs)
+    // En una app real, usaríamos selectores más genéricos como &#39;a[href=&#34;#&#34;], button&#39;
+    // Para el taller, somos específicos para evitar caos.
+    const selector = `
+      .inventory_item_name, 
+      .inventory_item_img a,
+      .shopping_cart_link,
+      [data-test=&#34;back-to-products&#34;],
+      [data-test=&#34;checkout&#34;],
+      [data-test=&#34;continue&#34;],
+      [data-test=&#34;finish&#34;]
+    `;
+
+    const candidates = await this.page.$$(selector);
+    
+    console.log(`   -&gt; Detectados ${candidates.length} elementos interactivos para probar.`);
+
+    // Iteramos por los candidatos (Usamos un for clásico para manejar async)
+    for (let i = 0; i &lt; candidates.length; i++) {
+      try {
+        // Recargamos los candidatos porque al volver atrás el DOM se destruye
+        // (El problema de &#34;Stale Element&#34; clásico de Selenium/Playwright)
+        const freshCandidates = await this.page.$$(&#39;.inventory_item_name, .inventory_item_img a&#39;);
+        const element = freshCandidates[i];
+
+        if (!element) continue;
+
+        // ACCIÓN: CLIC
+        await element.click();
+        
+        // ESPERA: Damos tiempo a que la app reaccione (SPA transition)
+        await this.page.waitForTimeout(800);
+
+        // CHEQUEO: ¿Dónde estoy?
+        const newUrl = this.page.url();
+
+        if (newUrl !== currentUrl) {
+          // ¡EUREKA! Encontramos un nuevo estado
+          console.log(`   ¡Descubrimiento! Click llevó a: ${newUrl}`);
+          
+          if (!this.visitedUrls.has(newUrl) &amp;&amp; !this.queue.includes(newUrl)) {
+            this.queue.push(newUrl);
+             // Guardamos la relación en el grafo
+             if (!this.adjacencyList.has(currentUrl)) {
+                this.adjacencyList.set(currentUrl, []);
+              }
+              this.adjacencyList.get(currentUrl).push(newUrl);
+          }
+
+          // RETROCESO (Backtrack): Vital para seguir probando el resto de botones
+          await this.page.goBack();
+          await this.page.waitForLoadState(&#39;domcontentloaded&#39;);
+        } 
+      } catch (err) {
+        console.log(`   Fallo explorando elemento ${i}: ${err.message}`);
+        // Intentamos recuperar la posición
+        if (this.page.url() !== currentUrl) {
+            await this.page.goto(currentUrl);
+        }
+      }
+    }
+  }
+</code></pre>
+<p><strong>Paso 2: Conectar el nuevo método</strong></p>
+<p>Modifica <code>visitAndExtract</code> para llamar a esta nueva función después de extraer los enlaces estáticos.</p>
+<pre><code language="language-jsx" class="language-jsx">async visitAndExtract(url) {
+    this.visitedUrls.add(url);
+    
+    try {
+      console.log(`Visitando: ${url}`);
+      await this.page.goto(url, { waitUntil: &#39;networkidle&#39; });
+
+      // FASE 1: Extracción Estática (Lo que ya teníamos)
+      const staticLinks = await this.extractLinks();
+      this.processLinks(url, staticLinks); // (Refactorizamos esto en un helper abajo)
+
+      // FASE 2: Exploración Dinámica (NUEVO)
+      // Solo lo hacemos si estamos en el inventario, carrito y pasos de checkout para no tardar años probando todo
+      const isExplorable = 
+        url.includes(&#39;inventory.html&#39;) || 
+        url.includes(&#39;cart.html&#39;) || 
+        url.includes(&#39;checkout-step-one.html&#39;) ||
+        url.includes(&#39;checkout-step-two.html&#39;);
+
+      if (isExplorable) {
+        await this.exploreDynamicLinks(url);
+      }
+
+    } catch (error) {
+      console.error(`Error procesando ${url}: ${error.message}`);
+    }
+  }
+
+  // Helper para no repetir código
+  processLinks(sourceUrl, links) {
+    console.log(`   -&gt; Encontrados ${links.length} enlaces estáticos.`);
+    for (const link of links) {
+      if (!this.visitedUrls.has(link) &amp;&amp; !this.queue.includes(link)) {
+        this.queue.push(link);
+        if (!this.adjacencyList.has(sourceUrl)) {
+           this.adjacencyList.set(sourceUrl, []);
+        }
+        this.adjacencyList.get(sourceUrl).push(link);
+      }
+    }
+  }
+</code></pre>
+<h2 is-upgraded><strong>Profundidad (Depth Limit)</strong></h2>
+<p>Un <em>Crawler</em> sin límites es peligroso. Podría encontrar un calendario y darle a &#34;Siguiente Mes&#34; infinitamente. Vamos a agregar un límite de profundidad simple.</p>
+<p>Modifica el constructor y el bucle <code>while</code>:</p>
+<pre><code language="language-jsx" class="language-jsx">constructor(page, baseUrl) {
+    ...
+    this.maxNodes = 15; // Límite de seguridad para el taller
+  }
+
+  async start() {
+    console.log(`Iniciando exploración en: ${this.baseUrl}`);
+    this.queue.push(this.baseUrl);
+
+    // Agregamos condición de parada de seguridad
+    while (this.queue.length &gt; 0 &amp;&amp; this.visitedUrls.size &lt; this.maxNodes) {
+      const currentUrl = this.queue.shift();
+      if (this.visitedUrls.has(currentUrl)) continue;
+      await this.visitAndExtract(currentUrl);
+    }
+    
+    this.report();
+  }
+</code></pre>
+<h2 is-upgraded><strong>Ejecución Final del Módulo</strong></h2>
+<p>Ejecuta el test nuevamente:</p>
+<pre><code language="language-bash" class="language-bash">npx playwright test --project=chromium
+</code></pre>
+<p><strong>Lo que deberías ver ahora:</strong></p>
+<ol type="1">
+<li>Visita <code>/inventory.html</code>.</li>
+<li>Log: <code>Iniciando exploración dinámica</code>.</li>
+<li>El navegador hará clic en el primer producto -&gt; La URL cambia<code>rá a /inventory-item.html?id=4</code> -&gt; Log: ¡Descubrimiento!.</li>
+<li>El navegador volverá atrás.</li>
+<li>Repetirá con el siguiente producto.</li>
+<li>Al terminar el bucle dinámico, la <code>queue</code> tendrá nuevas URLs.</li>
+<li>El <em>Ripper</em> procederá a visitar esas nuevas URLs una por una.</li>
+</ol>
+<p class="image-container"><img alt="img-03" src="img/334f452f2c5ed1f5.png"></p>
+<p>¡Ahora sí tenemos un <em>Ripper</em> real! Estamos descubriendo rutas que no estaban escritas explícitamente en el HTML inicial.</p>
+<p>La estrategia de <em>&#34;Click &amp; Back&#34;</em> es costosa en tiempo. Por eso los Rippers profesionales corren en paralelo o usan heurísticas muy avanzadas para decidir dónde hacer clic.</p>
+<p>En este taller, hemos priorizado la <strong>didáctica</strong> sobre la <strong>optimización</strong>, para que veas claramente cómo el robot &#34;piensa&#34; y &#34;prueba&#34;.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Generación de Artefactos" duration="0">
+        <p>Ya tenemos un robot que navega, explora y descubre rutas ocultas. Pero un explorador que no dibuja un mapa no sirve de mucho.</p>
+<p>En este módulo convertiremos los datos abstractos (logs de consola) en <strong>Artefactos Tangibles</strong>:</p>
+<ol type="1">
+<li><strong>Diagramas Visuales:</strong> Un grafo real que muestre la topología de la aplicación.</li>
+<li><strong>Evidencia Visual:</strong> Capturas de pantalla de cada estado único descubierto.</li>
+</ol>
+<p>Hasta ahora, nuestro Ripper imprime texto. En este módulo, aprenderemos a generar código <strong>Mermaid.js</strong>. Mermaid es una sintaxis similar a Markdown que permite generar diagramas de flujo automáticamente.</p>
+<p><strong>Objetivo:</strong> Al finalizar la ejecución, el <em>Ripper</em> generará un archivo de texto que, al pegarlo en un visor (como <a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fmermaid.live%2F" target="_blank"><strong>Mermaid Live Editor</strong></a>), dibujará el mapa completo de <em>Swag Labs</em>.</p>
+<h2 is-upgraded><strong>Teoría: Visualización de Grafos</strong></h2>
+<p>Nuestro <code>adjacencyList</code> es matemáticamente un grafo.</p>
+<ul>
+<li><strong>Formato Interno: </strong><code>Map { 'A' => ['B', 'C'] }</code></li>
+<li><strong>Formato Mermaid:</strong></li>
+</ul>
+<pre><code language="language-mermaid" class="language-mermaid">graph TD;
+  A --&gt; B;
+  A --&gt; C;
+</code></pre>
+<p class="image-container"><img alt="img-035" src="img/8142d564a9632d91.png"></p>
+<p>El reto técnico aquí es <strong>Sanitizar los Nodos</strong>. Las URLs son largas y contienen caracteres que rompen los diagramas (<code>:</code>, <code>/</code>, <code>?</code>). Necesitamos una función que convierta <code>https://www.saucedemo.com/inventory.html?id=4</code> en algo legible como <code>Inventory_Item_4</code>.</p>
+<h2 is-upgraded><strong>Implementación: El Generador de Reportes</strong></h2>
+<p>Vamos a modificar nuestra clase Ripper en src/Ripper.js.</p>
+<p><strong>Paso 1: Importar </strong></p>
+<p><strong><code>fs</code></strong></p>
+<p><strong> (File System)</strong></p>
+<p>Necesitamos escribir archivos en el disco duro. Al inicio de <code>src/Ripper.js</code>, agrega:</p>
+<pre><code language="language-jsx" class="language-jsx">import fs from &#39;fs&#39;;
+import path from &#39;path&#39;;
+</code></pre>
+<p><strong>Paso 2: Método </strong></p>
+<p><strong><code>sanitizeNode</code></strong></p>
+<p>Agrega este método auxiliar a la clase. Su trabajo es limpiar las URLs para que sean identificadores de nodo válidos.</p>
+<pre><code language="language-jsx" class="language-jsx">/**
+   * Convierte una URL larga en un ID corto para el gráfico.
+   * Ej: &#34;.../inventory.html&#34; -&gt; &#34;Inventory&#34;
+   */
+  sanitizeNode(url) {
+    try {
+      const urlObj = new URL(url);
+      let name = urlObj.pathname.replace(&#39;/&#39;, &#39;&#39;).replace(&#39;.html&#39;, &#39;&#39;);
+      
+      // Si es la raíz, llámala Home
+      if (name === &#39;&#39; || name === &#39;/&#39;) name = &#39;Home&#39;;
+      
+      // Si tiene query params, agrégalos (ej: ?id=4)
+      if (urlObj.search) {
+        name += `_${urlObj.searchParams.toString()}`;
+      }
+      
+      // Limpieza final de caracteres raros
+      return name.replace(/[^a-zA-Z0-9_]/g, &#39;_&#39;);
+    } catch (e) {
+      return &#39;Unknown_Node&#39;;
+    }
+  }
+</code></pre>
+<p><strong>Paso 3: Captura de Pantalla (Snapshot)</strong></p>
+<p>Modifica el método <code>visitAndExtract</code>. Queremos una foto cada vez que visitamos un nodo <strong>nuevo</strong>.</p>
+<pre><code language="language-jsx" class="language-jsx">// Dentro de visitAndExtract(url), justo después del page.goto:
+  
+  async visitAndExtract(url) {
+    this.visitedUrls.add(url);
+    try {
+      console.log(`Visitando: ${url}`);
+      await this.page.goto(url, { waitUntil: &#39;networkidle&#39; });
+
+      // --- NUEVO: FOTOGRAFÍA DEL ESTADO ---
+      const nodeId = this.sanitizeNode(url);
+      const screenshotPath = path.join(process.cwd(), &#39;ripper_artifacts&#39;, `${nodeId}.png`);
+      
+      // Creamos la carpeta si no existe
+      if (!fs.existsSync(&#39;ripper_artifacts&#39;)) {
+        fs.mkdirSync(&#39;ripper_artifacts&#39;);
+      }
+
+      await this.page.screenshot({ path: screenshotPath, fullPage: true });
+      ...
+</code></pre>
+<p><strong>Paso 4: Generar el Grafo</strong></p>
+<p>Reemplaza el método <code>report()</code> actual con esta versión avanzada que escribe el archivo Mermaid.</p>
+<pre><code language="language-jsx" class="language-jsx">report() {
+    console.log(&#39;--- GENERANDO ARTEFACTOS ---&#39;);
+    
+    // 1. Cabecera del archivo Mermaid
+    let mermaidContent = &#39;graph TD;\n&#39;;
+    
+    // 2. Iteramos sobre la lista de adyacencia
+    // Formato: NodoOrigen --&gt; NodoDestino
+    this.adjacencyList.forEach((destinations, source) =&gt; {
+      const sourceId = this.sanitizeNode(source);
+      
+      destinations.forEach(dest =&gt; {
+        const destId = this.sanitizeNode(dest);
+        // Evitamos auto-bucles visuales si no son necesarios
+        if (sourceId !== destId) {
+          mermaidContent += `  ${sourceId} --&gt; ${destId};\n`;
+        }
+      });
+    });
+
+    // 3. Escribir al disco
+    const outputPath = path.join(process.cwd(), &#39;ripper_artifacts&#39;, &#39;graph.mermaid&#39;);
+    fs.writeFileSync(outputPath, mermaidContent);
+    
+    console.log(`Grafo generado en: ${outputPath}`);
+    console.log(`Screenshots guardados en: /ripper_artifacts`);
+    console.log(`Total Nodos: ${this.visitedUrls.size}`);
+  }
+</code></pre>
+<h2 is-upgraded><strong>Ejecución y Visualización</strong></h2>
+<p>Ejecuta el <em>Ripper</em> nuevamente:</p>
+<pre><code language="language-bash" class="language-bash">npx playwright test --project=chromium
+</code></pre>
+<p><strong>Resultado:</strong></p>
+<ol type="1">
+<li>Verás una nueva carpeta <code>ripper_artifacts</code> en tu proyecto.</li>
+<li>Dentro, verás imágenes como <code>inventory.png</code>, <code>cart.png</code>, i<code>nventory_item_4.png</code>. ¡Tu robot ha documentado visualmente la app!</li>
+<li>Verás un archivo <code>graph.mermaid</code>.</li>
+</ol>
+<p><strong>El Ejercicio de Visualización</strong></p>
+<ol type="1">
+<li>Abre el archivo <code>ripper_artifacts/graph.mermaid</code> con un editor de texto (VS Code).</li>
+<li>Copia todo el contenido.</li>
+<li>Ve a <a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fmermaid.live%2F" target="_blank"><strong>Mermaid Live Editor</strong></a>.</li>
+<li>Pega el código en el panel izquierdo.</li>
+</ol>
+<p><strong>Lo que verás:</strong></p>
+<p>Un diagrama de flujo generado automáticamente que muestra cómo se conectan las páginas de <em>Swag Labs</em>. Verás claramente que <code>Inventory</code> es el nodo central que conecta con múltiples <code>Inventory_Item</code>.</p>
+<p class="image-container"><img alt="img-04" src="img/6589b92f40484b43.png"></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="El Oráculo - Detección de Anomalías" duration="0">
+        <p>Un mapa es útil, pero un mapa que señala dónde hay &#34;minas&#34; es vital.</p>
+<p>En este módulo final de implementación, convertiremos al <em>Ripper</em> en una herramienta de QA. No solo visitará, sino que <strong>escuchará</strong>.</p>
+<h2 is-upgraded>Listeners Pasivos</h2>
+<p>En lugar de escribir aserciones explícitas (<code>expect(x).toBe(y)</code>), usaremos <strong>Listeners</strong> de <em>Playwright</em>. Estos son &#34;oídos&#34; que se quedan activos durante toda la sesión.</p>
+<ol type="1">
+<li><strong>Response Listener:</strong> Cada vez que el navegador recibe una respuesta de red, verificamos si el status code es 404 (Not Found) o 500 (Server Error).</li>
+<li><strong>Console Listener:</strong> Cada vez que la página imprime un <code>console.error</code>, lo capturamos.</li>
+</ol>
+<h2 is-upgraded>Implementación: Cazando Errores</h2>
+<p>Vamos a modificar el <code>constructor</code> de la clase <code>Ripper</code> para activar estos oídos desde el principio.</p>
+<p><strong>Paso 1: Agregar almacenamiento de errores</strong></p>
+<p>En <code>src/Ripper.js</code>:</p>
+<pre><code language="language-jsx" class="language-jsx">constructor(page, baseUrl) {
+    // ... propiedades anteriores ...
+    this.errors = []; // Aquí guardaremos los hallazgos
+    
+    // ACTIVAR EL ORÁCULO
+    this.setupOracle();
+  }
+</code></pre>
+<p><strong>Paso 2: Crear el método </strong></p>
+<p><strong><code>setupOracle</code></strong></p>
+<p>Este método configura los eventos de <em>Playwright</em>.</p>
+<pre><code language="language-jsx" class="language-jsx">setupOracle() {
+    // 1. Oído de Red (Network Listener)
+    this.page.on(&#39;response&#39;, response =&gt; {
+      const status = response.status();
+      const url = response.url();
+      
+      // Filtramos ruido (Google Analytics, etc.) y nos enfocamos en errores reales
+      if (status &gt;= 400 &amp;&amp; url.includes(this.baseUrl)) {
+        const errorMsg = `HTTP ${status} en ${url}`;
+        console.error(errorMsg);
+        this.errors.push({ type: &#39;HTTP&#39;, msg: errorMsg, location: this.page.url() });
+      }
+    });
+
+    // 2. Oído de Consola (Console Listener)
+    this.page.on(&#39;console&#39;, msg =&gt; {
+      if (msg.type() === &#39;error&#39;) {
+        const errorMsg = `CONSOLE ERROR: ${msg.text()}`;
+        console.error(errorMsg);
+        this.errors.push({ type: &#39;JS&#39;, msg: errorMsg, location: this.page.url() });
+      }
+    });
+    
+    // 3. Oído de Crashes (Page Crash)
+    this.page.on(&#39;pageerror&#39;, exception =&gt; {
+      const errorMsg = `UNCAUGHT EXCEPTION: ${exception.message}`;
+      console.error(errorMsg);
+      this.errors.push({ type: &#39;CRASH&#39;, msg: errorMsg, location: this.page.url() });
+    });
+  }
+</code></pre>
+<p><strong>Paso 3: Reportar los Errores</strong></p>
+<p>Actualiza el método <code>report()</code> para incluir una sección de &#34;Salud del Sistema&#34;.</p>
+<pre><code language="language-jsx" class="language-jsx">report() {
+    // ... generación de grafo anterior ...
+    
+    console.log(&#39;\n--- REPORTE DE SALUD ---&#39;);
+    if (this.errors.length === 0) {
+      console.log(&#39;Sistema Saludable: No se detectaron anomalías.&#39;);
+    } else {
+      console.log(`SE ENCONTRARON ${this.errors.length} ANOMALÍAS:`);
+      this.errors.forEach(err =&gt; {
+        console.log(`   [${err.type}] en ${err.location} -&gt; ${err.msg}`);
+      });
+      
+      // Opcional: Escribir reporte de errores a disco
+      const errorPath = path.join(process.cwd(), &#39;ripper_artifacts&#39;, &#39;errors.json&#39;);
+      fs.writeFileSync(errorPath, JSON.stringify(this.errors, null, 2));
+    }
+  }
+</code></pre>
+<h2 is-upgraded>Visualización de Resultados</h2>
+<p>Ejecutamos nuevamente, pero esta vez viendo qué es lo que hace nuestro <em>Ripper</em> con la flag <code>--headed</code></p>
+<pre><code language="language-bash" class="language-bash">npx playwright test --project=chromium --headed
+</code></pre>
+<p>Has construido una herramienta profesional de <strong>Exploración Sistemática</strong>.</p>
+<ul>
+<li>Tiene memoria (Grafos).</li>
+<li>Tiene ojos (Screenshots).</li>
+<li>Tiene oídos (Detección de errores).</li>
+<li>Tiene voz (Reportes Mermaid).</li>
+</ul>
+<aside class="special"><p> Ahora, es momento de poner a prueba tus habilidades sin la guía paso a paso. Pasemos a los Desafíos Prácticos. </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Desafíos Prácticos" duration="0">
+        <p>Hasta ahora, has seguido las instrucciones para construir un <em>Ripper</em> funcional. Pero el mundo real del software es sucio, complejo y está lleno de casos borde.</p>
+<p>En este módulo, te enfrentarás a dos problemas comunes que todo ingeniero de automatización encuentra al construir herramientas de exploración. No te daré el código paso a paso, pero sí las pistas estratégicas para resolverlo.</p>
+<p><strong>Regla del Desafío:</strong> Intenta implementar las soluciones modificando tu clase <em>Ripper</em> actual. Si te atascas, consulta las &#34;Soluciones Sugeridas&#34; al final.</p>
+<h2 is-upgraded>Desafío 1: La Barrera del Formulario (Checkout)</h2>
+<p><strong>El Problema:</strong></p>
+<p>Si ejecutas tu <em>Ripper</em> actual, notarás que llega a la página de <em>Checkout</em> (<code>checkout-step-one.html</code>), intenta hacer clic en el botón <em>&#34;Continue&#34;</em>, recibe un error de validación (&#34;Error: First Name is required&#34;) y se detiene ahí.</p>
+<p>Nunca descubre la página de <code>checkout-step-two.html</code> ni la de <code>checkout-complete.html</code>.</p>
+<p><strong>Tu Misión:</strong></p>
+<p>Enseñar al <em>Ripper</em> a <strong>llenar formularios automáticamente</strong> cuando detecta inputs vacíos, para poder avanzar a las siguientes pantallas.</p>
+<p><strong>Requerimientos:</strong></p>
+<ol type="1">
+<li>Detectar si la página actual tiene campos de texto obligatorios (<code>input[type="text"]</code>).</li>
+<li>Llenarlos con datos falsos (puedes usar &#34;test&#34; o una librería como <code>faker</code>).</li>
+<li>Hacer esto <em>antes</em> de intentar extraer enlaces dinámicos (clics en botones).</li>
+</ol>
+<p><strong>Pista Técnica:</strong></p>
+<ul>
+<li>Crea un método <code>handleForms()</code> dentro de la clase <code>Ripper</code>.</li>
+<li>Llama a este método al principio de <code>visitAndExtract</code>.</li>
+<li>Usa <code>page.$$('input[data-test]')</code> para encontrar campos específicos de <em>Swag Labs</em> de manera robusta.</li>
+</ul>
+<h2 is-upgraded>Solución Sugerida (¡Solo para emergencias!)</h2>
+<p>Agrega este método a tu clase <code>Ripper</code> y llámalo dentro de <code>visitAndExtract</code> antes de la exploración dinámica. Además, cuando explores una página también debes hacerlo, así que lo necesitas dentro del bucle de <code>exploreDynamicLinks</code>.</p>
+<pre><code language="language-jsx" class="language-jsx">/**
+   * Heurística para superar bloqueos de formularios.
+   * Si ve inputs vacíos, los llena para intentar avanzar.
+   */
+  async handleForms() {
+    // Buscamos inputs de texto visibles
+    const inputs = await this.page.$$(&#39;input[type=&#34;text&#34;]&#39;);
+    
+    if (inputs.length &gt; 0) {
+      console.log(`   Detectado formulario con ${inputs.length} campos. Rellenando...`);
+      
+      for (const input of inputs) {
+        // Llenamos con datos genéricos
+        await input.fill(&#39;autobot_data&#39;);
+      }
+      
+      // Caso especial: Zip Code (a veces valida números)
+      const zip = await this.page.$(&#39;[data-test=&#34;postalCode&#34;]&#39;);
+      if (zip) await zip.fill(&#39;12345&#39;);
+    }
+  }
+</code></pre>
+<p><strong>Integración:</strong></p>
+<pre><code language="language-jsx" class="language-jsx">async visitAndExtract(url) {
+     ...
+     await this.page.goto(url, { waitUntil: &#39;networkidle&#39; });
+     
+     // 1. INTENTAR LLENAR FORMULARIOS (NUEVO)
+     await this.handleForms();
+
+     // 2. EXTRAER ENLACES...
+     ...
+}
+
+async exploreDynamicLinks(currentUrl) {
+    ...
+    for (let i = 0; i &lt; candidates.length; i++) {
+      try {
+        // 1. RE-LLENADO DEFENSIVO
+        // Antes de interactuar con cualquier botón, nos aseguramos 
+        // de que el formulario (si existe) esté lleno.
+        await this.handleForms(); 
+        ...
+  }
+</code></pre>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Referencias y Recursos Adicionales" duration="0">
+        <p>Este taller ha sido diseñado para proporcionar una base sólida en la automatización profesional, alineada con las mejores prácticas de la industria actual.</p>
+<h2 is-upgraded>Créditos</h2>
+<p>Autor: Wilmer Arévalo</p>
+<p>Rol: Profesional en Proyectos de Investigación</p>
+<p>Departamento: Centro de Investigación, Facultad de Ingeniería, Universidad de los Andes</p>
+<p>Fecha de creación/actualización: Febrero de 2026</p>
+<h2 is-upgraded>Referencias Oficiales</h2>
+<p>Todo el contenido de este taller está basado en la documentación oficial más reciente:</p>
+<ul>
+<li><strong>Paper Académico Fundacional: </strong><em>&#34;GUI Ripping: Reverse Engineering of Graphical User Interfaces for Testing&#34;</em> (Atif Memon et al.). Es la base teórica de lo que hicimos hoy.</li>
+<li><strong>Playwright Docs: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fplaywright.dev" target="_blank"><strong>https://playwright.dev</strong></a> - Especialmente la sección de <em>Network Interception</em> y <em>Selectors</em>.</li>
+<li><strong>Model-Based Testing (MBT):</strong> Investiga herramientas como <em>GraphWalker</em>, que llevan esto al siguiente nivel generando tests a partir de grafos.</li>
+</ul>
+<h2 is-upgraded><strong>Enlaces de Utilidad</strong></h2>
+<p>Guarda estos enlaces en tus favoritos, los necesitarán en el día a día como Automatizador de Pruebas de Software:</p>
+<ol type="1">
+<li><strong>Selectores: </strong><a href="https://playwright.dev/docs/writing-tests" target="_blank">https://webdriver.io/docs/selectors/.</a></li>
+<li><strong>Swag Labs (SUT): </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fwww.saucedemo.com%2F" target="_blank"><strong>SauceDemo</strong></a> - El sitio web que usamos para pruebas.</li>
+</ol>
+<h2 is-upgraded><strong>Soporte y Dudas</strong></h2>
+<p>Si tienen dudas al implementar esto en sus proyectos reales o encuentran problemas con la configuración:</p>
+<ul>
+<li><strong>Canal de Slack/Teams:</strong> Puede hacer las preguntas a través de los medios habilitados y los profesores, tutores y monitores podrán ayudar con la aclaración</li>
+<li><strong>Email de Contacto:</strong> w.arevalo@uniandes.edu.co</li>
+</ul>
+<aside class="special"><p> Repositorio del Taller </p>
+<p>El código final de este ejercicio está disponible en: https://github.com/LensesResearchLab/material-educativo-investigacion/tree/ripper_playwright</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>

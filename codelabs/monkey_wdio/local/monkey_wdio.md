@@ -969,7 +969,7 @@ Configura un **Smart Monkey** que corra ininterrumpidamente durante **3 minut
 
 **Pista Técnica:**
 
-- En lugar de un bucle for (`let i=0; i<LIMIT`), ¿qué estructura de control te permite ejecutar código *mientras* no se haya cumplido un tiempo límite? (Piensa en `Date.now()`).
+- En lugar de un bucle for (`let i=0; i&lt;LIMIT`), ¿qué estructura de control te permite ejecutar código *mientras* no se haya cumplido un tiempo límite? (Piensa en `Date.now()`).
 - No olvides configurar el `timeout` de Mocha en el `it`, o tu test morirá a los 60 segundos por defecto.
 
 ### Soluciones Sugeridas (**¡No mires hasta intentar!**)

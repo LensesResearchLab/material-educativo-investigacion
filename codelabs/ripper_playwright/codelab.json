@@ -3,12 +3,12 @@
   "format": "html",
   "prefix": "https://storage.googleapis.com",
   "mainga": "UA-49880327-14",
-  "updated": "2026-02-12T21:35:53-05:00",
-  "id": "monkey_wdio",
+  "updated": "2026-02-12T21:24:50-05:00",
+  "id": "ripper_playwright",
   "duration": 0,
-  "title": "Chaos Frontend - Monkey Testing con WebdriverIO",
-  "summary": "Chaos Frontend - Monkey Testing con WebdriverIO",
-  "source": "monkey_wdio.md",
+  "title": "GUI Ripping con Playwright",
+  "summary": "GUI Ripping con Playwright",
+  "source": "ripper_playwright.md",
   "theme": "",
   "status": [
     "published"
@@ -18,12 +18,13 @@
     "taller",
     "pruebasautomatizadas",
     "software",
-    "monkey",
-    "webdriverio"
+    "ripper",
+    "guiripping",
+    "playwright"
   ],
   "tags": [
     "web"
   ],
   "feedback": "https://github.com/LensesResearchLab/material-educativo-investigacion/issues",
-  "url": "monkey_wdio"
+  "url": "ripper_playwright"
 }
