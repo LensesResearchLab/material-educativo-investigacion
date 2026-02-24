@@ -93,6 +93,13 @@ Para proceder con este taller, asumiremos lo siguiente:
 3. **API Key:** Necesitarás una clave de **OpenAI** (para usar GPT-4o) o **Anthropic** (para Claude 3.5 Sonnet).
     - *Nota:* Stagehand funciona mejor con modelos capaces de interpretar imágenes (Vision). Modelos antiguos o pequeños (GPT-3.5) suelen fallar en tareas de UI.
 
+<aside>
+Nota: Para este tutorial usamos GROQ como nuestro proveedor de un LLM. Puedes ir a su página [GROQ](https://console.groq.com/), registrarte con un correo, crear un API Key nuevo.
+
+Si tienes la oportunidad y los medios económicos, te invitamos a probar modelos más potentes como GPT 4, entre otros, para obtener mejores resultados.
+
+</aside>
+
 Stagehand no viene a reemplazar tu trabajo. Viene a **elevar tu nivel de abstracción**.
 
 En lugar de ser el albañil que pone ladrillo por ladrillo (selectores), te conviertes en el Arquitecto que define la estructura y el propósito del edificio (intenciones).
