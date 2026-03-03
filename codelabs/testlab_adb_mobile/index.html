@@ -1,0 +1,941 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Android Cloud Testing con Firebase Test Lab y ADB</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14" ga4id=""></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  codelab-ga4id=""
+                  id="testlab_adb_mobile"
+                  title="Android Cloud Testing con Firebase Test Lab y ADB"
+                  environment="web"
+                  feedback-link="https://github.com/LensesResearchLab/material-educativo-investigacion/issues">
+    
+      <google-codelab-step label="Fragmentación y la Nube" duration="0">
+        <p>Pasar de la web a mobile es un salto obligatorio para un Engineer SDET (Software Development Engineer in Test) completo.</p>
+<p>El ecosistema móvil tiene un desafío que la web no tiene (o tiene menos): <strong>La Fragmentación</strong>. En web probamos Chrome y tal vez Safari. En Android, tenemos que probar Samsung, Pixel, Xiaomi, Motorola, Android 11, 12, 13, 14, 15... pantallas plegables, tablets, etc.</p>
+<p>Aquí entra <strong>Firebase Test Lab (FTL)</strong>: Una granja de dispositivos en la nube de Google.</p>
+<p><strong>&#34;En la web, si funciona en Chrome, funciona para el 80% del mundo. En Android, si funciona en tu Pixel, solo has probado el 1% del ecosistema.&#34;</strong></p>
+<h2 is-upgraded><strong>El Enemigo Silencioso: La Fragmentación</strong></h2>
+<p>Antes de escribir una sola línea de código, debemos entender por qué las pruebas móviles son inherentemente más difíciles que las web.</p>
+<p>En el desarrollo web, el navegador abstrae el hardware. En móvil, el software corre directamente sobre el hardware (&#34;bare metal&#34; o a través de la JVM/ART), y ese hardware varía infinitamente.</p>
+<p><strong>Las 3 Dimensiones del Caos en Android:</strong></p>
+<ol type="1">
+<li><strong>Versiones del SO:</strong> Tienes usuarios en Android 10 (API 29) hasta Android 15 (API 35). Las APIs cambian, los permisos cambian y las optimizaciones de batería cambian.</li>
+<li><strong>Personalización del Fabricante (OEMs):</strong> Un Samsung (OneUI) no se comporta igual que un Xiaomi (HyperOS) o un Pixel (Android Stock). Los fabricantes matan procesos en segundo plano de forma agresiva o cambian los estilos de los componentes nativos.</li>
+<li><strong>Factor de Forma:</strong> Pantallas pequeñas, tablets, teléfonos plegables (Foldables), densidad de píxeles (DPI). Un botón que se ve bien en un Pixel 8 puede desaparecer en un Galaxy Fold abierto.</li>
+</ol>
+<h2 is-upgraded><strong>La Solución: Granjas de Dispositivos (Device Farms)</strong></h2>
+<p>¿Cómo aseguramos la calidad ante tal variedad?</p>
+<ol type="1">
+<li><strong>Opción A (Local):</strong> Comprar 20 teléfonos físicos. <em>Problema:</em> Costoso, difícil de mantener cargados, se vuelven obsoletos rápido.</li>
+<li><strong>Opción B (Emuladores):</strong> Usar el Android Emulator en tu PC. <em>Problema:</em> No replican fielmente el hardware (sensores, red real, quirks del fabricante).</li>
+<li><strong>Opción C (Nube):</strong> Usar una granja de dispositivos como <strong>Firebase Test Lab</strong>.</li>
+</ol>
+<p><strong>¿Qué es Firebase Test Lab (FTL)?</strong></p>
+<p>Es una infraestructura basada en la nube proporcionada por Google que te permite probar tu aplicación en una amplia gama de dispositivos (físicos y virtuales) alojados en sus centros de datos.</p>
+<p><strong>Ventajas Clave:</strong></p>
+<ul>
+<li><strong>Acceso a Físicos:</strong> Pruebas en dispositivos reales sin comprarlos.</li>
+<li><strong>Logs Unificados:</strong> Video de la prueba, Logcat (logs del sistema), capturas de pantalla y rendimiento, todo en un reporte web.</li>
+<li><strong>Paralelismo:</strong> Ejecutar la misma prueba en 10 teléfonos distintos al mismo tiempo.</li>
+</ul>
+<h2 is-upgraded><strong>Tipos de Pruebas en FTL</strong></h2>
+<p>Firebase Test Lab soporta principalmente tres estrategias de testing automatizado:</p>
+<ol type="1">
+<li><strong>Robo Tests (El Crawler Inteligente)</strong></li>
+</ol>
+<ul>
+<li><strong>¿Qué es?</strong> Un robot automatizado que analiza la estructura de tu UI y la explora sistemáticamente (similar a nuestro Ripper del tutorial anterior, pero hecho por Google).</li>
+<li><strong>Ventaja: Cero Código.</strong> No necesitas escribir tests. Simplemente subes el APK y el robot busca crashes (bloqueos).</li>
+<li><strong>Limitación:</strong> No entiende la lógica de negocio. Si para entrar necesitas un usuario específico, el robot fallará a menos que le des un &#34;Robo Script&#34; (guion).</li>
+</ul>
+<ol type="1">
+<li><strong>Instrumentation Tests (Pruebas Instrumentadas)</strong></li>
+</ol>
+<ul>
+<li><strong>¿Qué es?</strong> Pruebas escritas por ti (QA/Dev) usando frameworks como <strong>Espresso</strong> o <strong>Compose Test Rules</strong>.</li>
+<li><strong>Ventaja:</strong> Validan flujos de negocio específicos (Login, Compra, Logout).</li>
+<li><strong>Contexto Compose:</strong> En este taller usaremos <strong>Compose Test Rules</strong>. A diferencia de XML donde buscábamos por <code>R.id.boton</code>, en Compose buscaremos por <strong>Semántica</strong> (<code>hasText("Entrar")</code>, <code>hasTestTag("login_button")</code>).</li>
+</ul>
+<ol type="1">
+<li><strong>Game Loops</strong></li>
+</ol>
+<ul>
+<li><strong>¿Qué es?</strong> Específico para motores de videojuegos (Unity, Unreal). El test recorre el juego simulando inputs. <em>(No cubriremos esto en el taller).</em></li>
+</ul>
+<h2 is-upgraded><strong>Arquitectura de Pruebas: Local vs. Nube</strong></h2>
+<p>Durante este taller, trabajaremos en dos entornos:</p>
+<ol type="1">
+<li><strong>Entorno Local (Tu PC):</strong><ul>
+<li>Usaremos <strong>Android Studio</strong> para desarrollar y compilar.</li>
+<li>Usaremos <strong>ADB (Android Debug Bridge)</strong> para comunicarnos con el emulador o dispositivo conectado por USB. Es la &#34;navaja suiza&#34; del QA Mobile.</li>
+</ul>
+</li>
+<li><strong>Entorno Nube (Firebase):</strong><ul>
+<li>Usaremos la <strong>Consola de Firebase</strong> (Web) para subidas manuales.</li>
+<li>Usaremos <strong>gcloud CLI</strong> (Terminal) para orquestar pruebas desde una línea de comandos, simulando un pipeline de CI/CD (Jenkins/GitHub Actions).</li>
+</ul>
+</li>
+</ol>
+<p>El objetivo de usar Firebase Test Lab no es solo encontrar bugs, es <strong>reducir el riesgo de lanzamiento</strong>.</p>
+<p>Si tu app crashea al abrirse en el teléfono más vendido de tu mercado (ej: Samsung A54), perderás miles de usuarios el día 1. FTL es tu seguro contra ese escenario.</p>
+<aside class="special"><p> ¿Listos para ensuciarnos las manos? En la siguiente sección, nos convertiremos en desarrolladores Android por unos minutos para construir nuestra aplicación víctima (SUT) con Jetpack Compose. </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Construcción del SUT con Jetpack Compose" duration="0">
+        <p>En este módulo, nos pondremos el sombrero de desarrolladores Android. Vamos a construir una aplicación minimalista pero funcional usando <strong>Jetpack Compose</strong>, el kit de herramientas moderno nativo de Google para construir interfaces de usuario (UI).</p>
+<p>A diferencia del viejo sistema de Views (XML), Compose es <strong>declarativo</strong> (como React o Flutter). Esto cambia la forma en que los elementos se identifican para las pruebas automatizadas.</p>
+<p><strong>&#34;Para un QA, el código fuente no debe ser una caja negra. Entender cómo se construye la UI es la mitad de la batalla de la automatización.&#34;</strong></p>
+<h2 is-upgraded><strong>Configuración del Proyecto (Android Studio)</strong></h2>
+<p>Vamos a crear el proyecto desde cero. Asegúrate de tener Android Studio instalado (versión Koala, Ladybug o superior).</p>
+<ol type="1">
+<li>Abre Android Studio y selecciona <strong>New Project</strong>.</li>
+<li>En la lista de plantillas, elige <strong>&#34;Empty Activity&#34;</strong> (Asegúrate de que el icono tenga el logo de Compose, el triángulo verde/azul). <em>Nota: No elijas &#34;Empty Views Activity&#34;.</em></li>
+<li>Configura el proyecto: <ul>
+<li><strong>Name: </strong><code>TallerLoginApp</code></li>
+<li><strong>Package name: </strong><code>com.example.tallerloginapp</code> (Esto es importante, es el ID único de la app).</li>
+<li><strong>Build Configuration Language:</strong> Kotlin DSL (Recommended).</li>
+</ul>
+</li>
+<li>Haz clic en <strong>Finish</strong> y espera a que Gradle sincronice (esto puede tardar unos minutos descargando dependencias).</li>
+</ol>
+<h2 is-upgraded><strong>Implementación de la UI (LoginScreen)</strong></h2>
+<p>En Compose, no hay archivos XML para la UI. Todo es código Kotlin.</p>
+<p>Abre el archivo <code>MainActivity.kt</code>. Vamos a borrar el código de ejemplo y pegar nuestra lógica de Login.</p>
+<p><strong>Concepto Clave: Modifier.testTag</strong></p>
+<p>En el sistema antiguo, usábamos <code>android:id="@+id/login_btn"</code>.</p>
+<p>En Compose, aunque podemos buscar por texto (<code>hasText("Login")</code>), esto es mala práctica porque el texto cambia con el idioma.</p>
+<p>La mejor práctica es usar <strong>Test Tags</strong>. Son etiquetas invisibles para el usuario, pero visibles para los frameworks de prueba (Appium, Espresso, Maestro).</p>
+<p>Copia y pega este código en tu <code>MainActivity.kt</code>:</p>
+<pre><code language="language-kotlin" class="language-kotlin">package com.example.tallerloginapp
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MaterialTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    LoginScreen()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LoginScreen() {
+    // ESTADO: Variables reactivas que guardan lo que escribe el usuario
+    var username by remember { mutableStateOf(&#34;&#34;) }
+    var password by remember { mutableStateOf(&#34;&#34;) }
+    var message by remember { mutableStateOf(&#34;&#34;) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = &#34;Bienvenido al Taller&#34;, style = MaterialTheme.typography.headlineMedium)
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // INPUT USUARIO
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
+            label = { Text(&#34;Usuario&#34;) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(&#34;username_input&#34;) // &lt;--- ID para Automation
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // INPUT PASSWORD
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text(&#34;Contraseña&#34;) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(&#34;password_input&#34;) // &lt;--- ID para Automation
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // BOTÓN LOGIN
+        Button(
+            onClick = {
+                // LÓGICA DE NEGOCIO SIMPLIFICADA
+                if (username == &#34;admin&#34; &amp;&amp; password == &#34;1234&#34;) {
+                    message = &#34;Login Exitoso&#34;
+                } else {
+                    message = &#34;Credenciales Incorrectas&#34;
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(&#34;login_button&#34;) // &lt;--- ID para Automation
+        ) {
+            Text(&#34;Ingresar&#34;)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // MENSAJE DE RESULTADO (Aserción Visual)
+        if (message.isNotEmpty()) {
+            Text(
+                text = message,
+                color = if (message == &#34;Login Exitoso&#34;) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag(&#34;result_message&#34;) // &lt;--- ID para comprobar el resultado
+            )
+        }
+    }
+}
+</code></pre>
+<p>Si Android Studio marca <code>testTag</code> en rojo, pon el cursor encima y presiona Alt + Enter para importar. Probablemente necesites agregar la importación manual: <code>import androidx.compose.ui.platform.testTag</code>.</p>
+<h2 is-upgraded><strong>Generación de los Artefactos (APKs)</strong></h2>
+<p>Para probar en la nube (Firebase), no subimos el código fuente, subimos el binario compilado: el <strong>APK</strong>(Android Package).</p>
+<p>Existen dos tipos de APKs que nos interesan:</p>
+<ol type="1">
+<li><strong>App APK (app-debug.apk):</strong> La aplicación en sí.</li>
+<li><strong>Test APK (app-debug-androidTest.apk):</strong> Contiene nuestros scripts de prueba (Espresso/Compose Rules). Aunque aún no hemos escrito tests, generaremos este APK para tener el flujo listo.</li>
+</ol>
+<p><strong>Cómo compilar desde la Terminal (Integración Continua Style)</strong></p>
+<p>Android Studio tiene una pestaña &#34;Terminal&#34; en la parte inferior. Ábrela y ejecuta:</p>
+<p>En Windows:</p>
+<pre><code language="language-powershell" class="language-powershell">.\gradlew assembleDebug assembleAndroidTest
+</code></pre>
+<p>En Mac/Linux:</p>
+<pre><code language="language-bash" class="language-bash">./gradlew assembleDebug assembleAndroidTest
+</code></pre>
+<p><em>Nota:</em> La primera vez descargará medio internet (Gradle Wrapper). Ten paciencia.</p>
+<h2 is-upgraded><strong>Ubicación de los Artefactos</strong></h2>
+<p>Una vez que veas el mensaje <code>BUILD SUCCESSFUL</code>, tus archivos estarán listos. Es vital que sepas dónde están, porque los necesitarás para subirlos a Firebase.</p>
+<p>Navega en tu explorador de archivos a la carpeta del proyecto:</p>
+<ul>
+<li><strong>App APK: </strong><code>TallerLoginApp/app/build/outputs/apk/debug/app-debug.apk</code></li>
+<li><strong>Test APK: </strong><code>TallerLoginApp/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk</code></li>
+</ul>
+<p>Acabamos de crear una aplicación &#34;Test-Friendly&#34;.</p>
+<p>Muchos desarrolladores olvidan poner los <code>testTag</code> o <code>contentDescription</code>, haciendo que la vida del QA sea un infierno de XPaths frágiles.</p>
+<p><strong>Regla de Oro:</strong> Si el componente es interactivo o contiene información clave, debe tener un <code>testTag</code>.</p>
+<aside class="special"><p> ¿Lograste compilar la app y encontrar los archivos `.apk`? Si es así, estamos listos para dejar el código y empezar a jugar con herramientas de hacker en la sección 2: ADB. </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Dominando ADB (Android Debug Bridge)" duration="0">
+        <p>Ya tenemos el artefacto (APK). Ahora, antes de subirlo a la nube, debemos aprender a manipularlo <strong>localmente</strong> sin tocar la pantalla del emulador.</p>
+<p>Para un Ingeniero de Automatización Móvil, el ratón es secundario. La verdadera potencia reside en la terminal.</p>
+<p>En este módulo, dominaremos <strong>ADB (Android Debug Bridge)</strong>. Es la herramienta que usan Appium, Maestro y Firebase Test Lab &#34;bajo el capó&#34; para orquestar todo.</p>
+<p><strong>&#34;Si no puedes hacerlo por línea de comandos, no puedes automatizarlo.&#34;</strong></p>
+<h2 is-upgraded><strong>Teoría: Arquitectura Cliente-Servidor</strong></h2>
+<p>ADB no es solo un comando; es un sistema de tres partes:</p>
+<ol type="1">
+<li><strong>Cliente:</strong> Tu terminal (donde escribes los comandos).</li>
+<li><strong>Servidor:</strong> Un proceso en tu PC que gestiona la comunicación.</li>
+<li><strong>Daemon (adbd):</strong> Un proceso que corre <em>dentro</em> del teléfono/emulador y ejecuta las órdenes.</li>
+</ol>
+<p>Cuando ejecutas un test en Firebase Test Lab, Google no tiene a una persona tocando la pantalla. Tienen servidores enviando comandos ADB a miles de dispositivos conectados por USB.</p>
+<h2 is-upgraded><strong>Verificación del Entorno</strong></h2>
+<p>ADB viene incluido en el <strong>Android SDK Platform-Tools</strong>.</p>
+<ol type="1">
+<li>Abre tu terminal (PowerShell, Bash, Zsh).</li>
+<li>Escribe: <code>adb version</code>.</li>
+</ol>
+<ul>
+<li><strong>Caso A:</strong> Si ves <code>Android Debug Bridge version x.x.x</code>, estás listo.</li>
+<li><strong>Caso B:</strong> Si ves <code>command not found</code>, necesitas agregar la carpeta <code>platform-tools</code> a tu variable de entorno PATH. <ul>
+<li><em>Ruta típica Mac/Linux: </em><code>~/Library/Android/sdk/platform-tools</code></li>
+<li><em>Ruta típica Windows: </em><code>C:\Users\TU_USUARIO\AppData\Local\Android\Sdk\platform-tools</code></li>
+</ul>
+</li>
+</ul>
+<h2 is-upgraded><strong>Práctica: Control Remoto Total</strong></h2>
+<p>Vamos a realizar el ciclo de vida de una prueba manual, pero usando solo la terminal. Asegúrate de tener un emulador abierto o un dispositivo físico conectado (con Depuración USB activa).</p>
+<p><strong>Paso 1: Reconocimiento (devices)</strong></p>
+<p>Verifica quién está conectado.</p>
+<pre><code language="language-bash" class="language-bash">adb devices
+</code></pre>
+<p><em>Salida esperada:</em></p>
+<pre><code language="language-bash" class="language-bash">List of devices attached
+emulator-5554   device
+0A3X1J2K        device
+</code></pre>
+<p>Si dice <code>unauthorized</code>, revisa la pantalla del teléfono y acepta la huella digital RSA.</p>
+<p><strong>Paso 2: Instalación Limpia (install)</strong></p>
+<p>Vamos a instalar la app que compilamos en la sección anterior.</p>
+<p>Navega a la carpeta donde está tu APK (o copia la ruta completa).</p>
+<pre><code language="language-bash" class="language-bash"># -r: Reinstalar si ya existe (guarda datos)
+# -g: Conceder todos los permisos runtime (cámara, ubicación, etc.) automáticamente
+adb install -r -g app-debug.apk
+</code></pre>
+<p><em>Salida: </em><code>Success</code></p>
+<p><strong>Paso 3: Ejecución (</strong></p>
+<p><strong><code>shell am</code></strong></p>
+<p><strong>)</strong></p>
+<p>Vamos a lanzar la App. Aquí usamos el <strong>Activity Manager (am)</strong>.</p>
+<p>Necesitamos saber el <em>Package Name</em> (<code>com.example.tallerloginapp</code>) y la <em>Activity</em> principal (<code>.MainActivity</code>).</p>
+<pre><code language="language-bash" class="language-bash"># -n: Define el componente (Paquete / Actividad)
+adb shell am start -n com.example.tallerloginapp/.MainActivity
+</code></pre>
+<p><em>Resultado:</em> La app debería abrirse mágicamente en el emulador.</p>
+<p class="image-container"><img alt="img-01" src="img/eb2fab503c1bb9b8.png"></p>
+<p><strong>Paso 4: Interacción Fantasma (</strong></p>
+<p><strong><code>shell input</code></strong></p>
+<p><strong>)</strong></p>
+<p>Aquí es donde simulamos al usuario. Vamos a intentar loguearnos.</p>
+<p><em>Nota: Estos comandos son &#34;ciegos&#34;, asumen que la app está en el estado correcto.</em></p>
+<pre><code language="language-bash" class="language-bash"># 1. Escribir texto (asume que el foco está en el primer campo, o usa TAB para navegar)
+# Tip: En Compose, a veces necesitas tocar el campo primero.
+# Simulamos un TAP en coordenadas X,Y (ajusta según tu pantalla, ej: centro de pantalla)
+# O mejor, usamos TABs para navegar accesibilidad.
+
+# Enviamos TAB (Keycode 61) para mover el foco al campo Usuario
+adb shell input keyevent 61
+# Escribimos
+adb shell input text &#34;admin&#34;
+
+# TAB al campo Password
+adb shell input keyevent 61
+# Escribimos
+adb shell input text &#34;1234&#34;
+
+# TAB al botón Login
+adb shell input keyevent 61
+# ENTER (Keycode 66) para presionar
+adb shell input keyevent 66
+</code></pre>
+<p><strong>Reto de Hacker:</strong> Si input text falla porque no hay foco, puedes usar <code>adb shell input tap 500 800</code> (coordenadas X Y aproximadas del campo). ¡Descubre las coordenadas activando &#34;Pointer Location&#34; en las opciones de desarrollador del teléfono!</p>
+<h2 is-upgraded><strong>El Oráculo del Sistema (logcat)</strong></h2>
+<p>Si la app crashea, ¿dónde está el error? En el <strong>Logcat</strong>.</p>
+<p>Es un río de información constante. Vamos a filtrarlo.</p>
+<pre><code language="language-bash" class="language-bash"># Limpiar el buffer antiguo
+adb logcat -c
+
+# Escuchar logs, filtrando solo errores (E) de nuestra app
+# En Windows usa &#39;findstr&#39;, en Mac/Linux usa &#39;grep&#39;
+adb logcat &#34;*:E&#34; | grep &#34;com.example.tallerloginapp&#34;
+</code></pre>
+<p>Si la app falla o se lanza un error, verás los logs aparecer en tiempo real en tu terminal. Presiona <code>Ctrl + C</code> para detener.</p>
+<h2 is-upgraded><strong>Extracción de Evidencia</strong></h2>
+<p>Un QA necesita pruebas.</p>
+<p><strong>Captura de Pantalla:</strong></p>
+<pre><code language="language-bash" class="language-bash"># 1. Tomar foto y guardarla EN EL TELÉFONO (/sdcard)
+adb shell screencap -p /sdcard/evidencia.png
+
+# 2. Traer la foto A TU COMPUTADORA
+adb pull /sdcard/evidencia.png ./mi_escritorio/
+</code></pre>
+<p><strong>Grabar Video:</strong></p>
+<pre><code language="language-bash" class="language-bash">adb shell screenrecord /sdcard/demo.mp4
+# (Haz cosas en el emulador por 5 segundos...)
+# Presiona Ctrl+C en la terminal para detener grabación
+adb pull /sdcard/demo.mp4 .
+</code></pre>
+<p>Lo que acabas de hacer manualmente (<code>install -> start -> input -> logcat</code>) es <strong>exactamente</strong> lo que hace Firebase Test Lab automáticamente cuando le envías un &#34;Robo Test&#34;.</p>
+<p>Entender ADB te permite depurar cuando la nube falla. Si FTL dice &#34;Device setup failed&#34;, sabrás que probablemente falló el comando <code>adb install</code> por una incompatibilidad de arquitecturas (x86 vs ARM) o versiones de API.</p>
+<aside class="special"><p> ¿Lograste abrir la app y escribir &#34;admin&#34; desde la terminal? Si dominas ADB, dominas el mundo Android. En la próxima sección dejaremos de jugar en local y subiremos nuestra App a la nube de Google. </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Robo Tests y Robo Scripts" duration="0">
+        <p>Ya dominamos la terminal. Ahora vamos a llevar nuestra aplicación a la nube.</p>
+<p>En este módulo, descubriremos cómo Google puede probar nuestra aplicación automáticamente sin que nosotros escribamos una sola línea de código de prueba... aunque con una pequeña ayuda nuestra para superar el Login.</p>
+<p><strong>&#34;La automatización sin código es posible, pero la automatización sin inteligencia es inútil.&#34;</strong></p>
+<h2 is-upgraded><strong>Teoría: El Crawler de Google (Robo Test)</strong></h2>
+<p>Imagina que le das tu teléfono a un niño muy curioso y muy rápido. Tocará todo, girará la pantalla, cambiará el idioma y tratará de romper la app. Eso es un <strong>Robo Test</strong>.</p>
+<p><strong>¿Cómo funciona?</strong></p>
+<p>El &#34;Robo&#34; analiza la jerarquía de vistas de tu aplicación (UI Hierarchy) en tiempo real. Identifica elementos interactivos (botones, campos de texto) y ejecuta acciones sobre ellos usando una exploración DFS (Depth-First Search) y aleatoria.</p>
+<p><strong>Lo que detecta automáticamente:</strong></p>
+<ol type="1">
+<li><strong>Crashes (FATAL EXCEPTION):</strong> Si la app se cierra inesperadamente.</li>
+<li><strong>Problemas de Layout:</strong> Elementos superpuestos en pantallas pequeñas.</li>
+<li><strong>Accesibilidad:</strong> Botones muy pequeños o falta de contraste.</li>
+</ol>
+<p><strong>El Problema del Login:</strong></p>
+<p>El Robo es inteligente, pero no es adivino. Si llega a nuestra LoginScreen, verá dos campos de texto. Probablemente escriba <em>&#34;Hello&#34;</em> en el usuario y <em>&#34;World&#34;</em> en el password. Como nuestra app requiere <em>&#34;admin&#34;</em> y <em>&#34;1234&#34;</em>, el Robo nunca pasará de la primera pantalla. Aquí es donde entra el <strong>Robo Script</strong>.</p>
+<h2 is-upgraded><strong>Práctica: Tu Primera Ejecución en la Nube</strong></h2>
+<p>Vamos a ver al Robo fallar (o quedarse atascado) para entender la necesidad del script.</p>
+<p><strong>Paso 1: Configurar Firebase Console</strong></p>
+<ol type="1">
+<li>Ve a <a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fconsole.firebase.google.com%2F" target="_blank"><strong>console.firebase.google.com</strong></a>.</li>
+<li>Crea un nuevo proyecto llamado TallerQA-Mobile.</li>
+<li>Desactiva Google Analytics para este taller (ahorra pasos de configuración).</li>
+<li>Una vez creado, en el menú lateral izquierdo, busca la sección <strong>Run</strong> (o <strong>Ejecutar</strong>) y selecciona <strong>Test Lab</strong>.</li>
+</ol>
+<p><strong>Paso 2: Subida Manual (La Prueba Ciega)</strong></p>
+<ol type="1">
+<li>Haz clic en <strong>&#34;Run a test&#34;</strong> (Ejecutar prueba).</li>
+<li>Selecciona <strong>Robo</strong>.</li>
+<li>Te pedirá subir el APK. Sube el archivo <code>app-debug.apk</code> que generamos en el Módulo 1 (Carpeta: <code>app/build/outputs/apk/debug/</code>).</li>
+<li><strong>Configuración de la Matriz:</strong><ul>
+<li>Firebase te sugerirá un dispositivo (ej: Pixel 5, API 30). Déjalo así por ahora.</li>
+</ul>
+</li>
+<li>Haz clic en <strong>Start Test</strong>, si este no se inicia automáticamente.</li>
+</ol>
+<p><strong>Paso 3: Análisis de Resultados</strong></p>
+<p>La prueba tardará unos 2-5 minutos (Google está aprovisionando un teléfono físico real o virtual para ti).</p>
+<ul>
+<li><strong>Observa el Video:</strong> Cuando termine, verás un video de la ejecución.</li>
+<li><strong>El Resultado:</strong> Verás que el Robo escribe texto aleatorio, gira la pantalla, pero <strong>nunca ve el mensaje &#34;Login Exitoso&#34;</strong>. Se quedó atrapado en la puerta.</li>
+</ul>
+<p class="image-container"><img alt="img-02" src="img/29788c9db6f91c4a.png"></p>
+<h2 is-upgraded><strong>Robo Scripts (robo.script)</strong></h2>
+<p>Para guiar al robot, usamos un archivo JSON llamado <code>robo.script</code>. Es una lista de instrucciones secuenciales que el robot ejecuta <em>antes</em> de volverse loco aleatoriamente.</p>
+<p>Dado que usamos <strong>Jetpack Compose</strong>, la identificación de elementos es sutilmente diferente a XML. El Robo se basa mucho en la <strong>Accesibilidad (Content Description)</strong> o en el texto visible.</p>
+<p><strong>Paso 4: Creación del Guion (JSON Manual)</strong></p>
+<p>Aunque Android Studio tiene herramientas de grabación, a veces fallan con Compose. Vamos a escribir el script manualmente como verdaderos ingenieros.</p>
+<p>Crea un archivo llamado <code>login_script.json</code> en tu carpeta del proyecto y pega lo siguiente:</p>
+<pre><code language="language-json" class="language-json">[
+  {
+    &#34;eventType&#34;: &#34;VIEW_TEXT_CHANGED&#34;,
+    &#34;timestamp&#34;: 1000,
+    &#34;replacementText&#34;: &#34;admin&#34;,
+    &#34;elementDescriptors&#34;: [
+      {
+        &#34;className&#34;: &#34;android.widget.EditText&#34;,
+        &#34;groupViewId&#34;: 0,
+        &#34;resourceId&#34;: &#34;&#34;, 
+        &#34;contentDescription&#34;: &#34;&#34;,
+        &#34;text&#34;: &#34;Usuario&#34; 
+      }
+    ]
+  },
+  {
+    &#34;eventType&#34;: &#34;VIEW_TEXT_CHANGED&#34;,
+    &#34;timestamp&#34;: 2000,
+    &#34;replacementText&#34;: &#34;1234&#34;,
+    &#34;elementDescriptors&#34;: [
+      {
+        &#34;className&#34;: &#34;android.widget.EditText&#34;,
+        &#34;groupViewId&#34;: 0,
+        &#34;resourceId&#34;: &#34;&#34;,
+        &#34;contentDescription&#34;: &#34;&#34;,
+        &#34;text&#34;: &#34;Contraseña&#34;
+      }
+    ]
+  },
+  {
+    &#34;eventType&#34;: &#34;VIEW_CLICKED&#34;,
+    &#34;timestamp&#34;: 3000,
+    &#34;elementDescriptors&#34;: [
+      {
+        &#34;className&#34;: &#34;android.widget.Button&#34;,
+        &#34;text&#34;: &#34;Ingresar&#34;
+      }
+    ]
+  }
+]
+</code></pre>
+<p><strong>Análisis del JSON:</strong></p>
+<ol type="1">
+<li><strong>Estrategia de Localización:</strong> Fíjate que usamos <code>"text": "Usuario"</code> y <code>"text": "Ingresar"</code>. <ul>
+<li>En Compose, los <code>OutlinedTextField</code> exponen su label como texto al servicio de accesibilidad. El Robo usa esto para encontrar el campo.</li>
+<li><em>Nota:</em> Si tuviéramos <code>Modifier.semantics { contentDescription = "desc" }</code>, usaríamos el campo <code>"contentDescription"</code> en el JSON, lo cual es más robusto multi-idioma.</li>
+</ul>
+</li>
+<li><strong>Acciones:</strong><ul>
+<li><code>VIEW_TEXT_CHANGED</code>: Escribir texto.</li>
+<li><code>VIEW_CLICKED</code>: Tocar.</li>
+</ul>
+</li>
+</ol>
+<h2 is-upgraded><strong>Ejecución Guiada (Robo + Script)</strong></h2>
+<p>Volvamos a Firebase Console.</p>
+<ol type="1">
+<li>Haz clic en <strong>&#34;Run a test&#34;</strong> nuevamente.</li>
+<li>Selecciona <strong>Robo</strong>.</li>
+<li>Sube el mismo <code>app-debug.apk</code>.</li>
+<li>En la sección <strong>Robo script</strong>.</li>
+<li>Sube tu archivo <code>login_script.json</code>.</li>
+<li>Inicia la prueba.</li>
+</ol>
+<p class="image-container"><img alt="img-03" src="img/3355c03a24c283fb.png"></p>
+<h2 is-upgraded><strong>El Veredicto</strong></h2>
+<p>Espera los resultados.</p>
+<ol type="1">
+<li><strong>Mira el Video:</strong> Esta vez, verás que el robot se detiene, escribe &#34;admin&#34;, escribe &#34;1234&#34; y pulsa &#34;Ingresar&#34;.</li>
+<li><strong>Screenshots:</strong> Busca en la pestaña de capturas de pantalla. Deberías ver una que dice <strong>&#34;Login Exitoso&#34;</strong> en verde.</li>
+<li><strong>Mapa de Exploración (Activity Map):</strong> Firebase genera un grafo de las pantallas visitadas. Ahora, el grafo debería mostrar el estado de éxito como un nodo visitado.</li>
+</ol>
+<p>Los Robo Scripts son una herramienta de &#34;bajo costo, alto impacto&#34;.</p>
+<p>No reemplazan a Espresso/Appium para pruebas de regresión complejas, pero son perfectos para <strong>Smoke Tests</strong> rápidos.</p>
+<p><em>Escenario Real:</em> Configuras un Robo Test diario en Jenkins. Si un desarrollador rompe el Login o la app crashea al abrirse, el Robo te avisará antes que cualquier usuario, y solo te costó un archivo JSON de 20 líneas.</p>
+<aside class="special"><p> ¿Lograste que el robot entrara a la app? </p>
+<p>Ahora que hemos probado la app &#34;desde fuera&#34; (Caja Negra), vamos a probarla &#34;desde dentro&#34; (Caja Blanca) escribiendo código Kotlin real con Espresso y Compose Rules en la próxima sección.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Pruebas Instrumentadas con Espresso y Compose" duration="0">
+        <p>Ya sabemos cómo probar nuestra app sin escribir código (Robo Tests) y cómo &#34;engañar&#34; al robot para que pase el login (Robo Scripts).</p>
+<p>Ahora, nos vamos a poner serios. Un Ingeniero SDET no confía en la suerte de un robot aleatorio. Escribe pruebas <strong>deterministas</strong> y <strong>reproducibles</strong>.</p>
+<p>En este módulo, aprenderemos a escribir <strong>Pruebas Instrumentadas</strong> con <strong>Jetpack Compose Test Rules</strong>. Estas pruebas corren <em>dentro</em> del dispositivo, interactuando directamente con la UI a la velocidad de la luz.</p>
+<p><strong>&#34;Un Robo Test te dice si la app crashea. Un Instrumentation Test te dice si la app funciona.&#34;</strong></p>
+<h2 is-upgraded><strong>Teoría: ¿Qué es una Prueba Instrumentada?</strong></h2>
+<p>A diferencia de una prueba unitaria (JUnit) que corre en la JVM de tu computadora y es rapidísima pero aislada, una prueba instrumentada corre en el <strong>dispositivo Android</strong> (físico o emulado).</p>
+<p><strong>La Magia de la Instrumentación:</strong></p>
+<p>El sistema Android instala dos APKs:</p>
+<ol type="1">
+<li><strong>App APK:</strong> Tu aplicación (<code>com.example.tallerloginapp</code>).</li>
+<li><strong>Test APK:</strong> Una aplicación &#34;parásita&#34; (<code>com.example.tallerloginapp.test</code>) que inyecta comandos en el proceso de la App principal.</li>
+</ol>
+<p>Esto permite que tu código de prueba diga: <em>&#34;Oye, App, presiona ese botón ahora&#34;</em> o <em>&#34;Dime qué texto tiene ese campo&#34;</em>.</p>
+<h2 is-upgraded><strong>Configuración del Entorno de Pruebas</strong></h2>
+<p>Vamos a volver a <strong>Android Studio</strong>.</p>
+<p>Abre el archivo <code>build.gradle.kts</code> (Module <code>:app</code>).</p>
+<p>Asegúrate de tener las dependencias de testing para Compose. Deberían estar ahí por defecto si creaste el proyecto con la plantilla &#34;Empty Activity&#34;, pero verifiquémoslo:</p>
+<pre><code language="language-kotlin" class="language-kotlin">dependencies {
+    // ... otras dependencias ...
+    
+    // Regla de Test para JUnit 4 (Esencial)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    
+    // Herramientas de depuración (Manifest, etc.)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+</code></pre>
+<p><em>Nota:</em> Si usas <code>libs.versions.toml</code> (Catálogo de versiones), verifica que existan. Si no, agrégalas manualmente:</p>
+<p><code>androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.6.8")</code></p>
+<p><code>debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.8")</code></p>
+<p>Sincroniza el proyecto (Sync Now).</p>
+<h2 is-upgraded><strong>Escritura del Test (</strong><strong><code>LoginTest.kt</code></strong><strong>)</strong></h2>
+<p>En el explorador de proyectos (izquierda), busca la carpeta <code>app/src/androidTest/java/com/example/tallerloginapp/</code>.</p>
+<p>(Ojo: No confundir con <code>test/java</code> que es para unit tests).</p>
+<p>Crea un nuevo archivo Kotlin llamado <code>LoginTest.kt</code>.</p>
+<p><strong>El Escenario de Prueba:</strong></p>
+<ol type="1">
+<li>Lanzar la pantalla de Login.</li>
+<li>Escribir &#34;admin&#34; en el usuario.</li>
+<li>Escribir &#34;1234&#34; en el password.</li>
+<li>Cerrar el teclado (importante en móviles).</li>
+<li>Hacer clic en &#34;Ingresar&#34;.</li>
+<li><strong>Aserción:</strong> Verificar que aparece el texto &#34;Login Exitoso&#34;.</li>
+</ol>
+<p>Copia y pega este código:</p>
+<pre><code language="language-kotlin" class="language-kotlin">package com.example.tallerloginapp
+
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class LoginTest {
+
+    // 1. REGLA DE COMPOSE: Inicia la UI antes de cada test
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    @Test
+    fun loginExitoso_debeMostrarMensajeVerde() {
+        // 2. SETUP: Cargamos la pantalla
+        composeTestRule.setContent {
+            LoginScreen()
+        }
+
+        // 3. INTERACCIÓN (Act)
+        // Usamos los testTags que definimos en el Módulo 1.
+        // onNodeWithTag busca en el árbol semántico.
+        
+        composeTestRule.onNodeWithTag(&#34;username_input&#34;)
+            .performTextInput(&#34;admin&#34;)
+
+        composeTestRule.onNodeWithTag(&#34;password_input&#34;)
+            .performTextInput(&#34;1234&#34;)
+
+        composeTestRule.onNodeWithTag(&#34;login_button&#34;)
+            .performClick()
+
+        // 4. ASERCIÓN (Assert)
+        // Esperamos que aparezca el nodo con el mensaje y verificamos su texto.
+        composeTestRule.onNodeWithTag(&#34;result_message&#34;)
+            .assertIsDisplayed()
+            .assertTextEquals(&#34;Login Exitoso&#34;)
+    }
+    
+    @Test
+    fun loginFallido_debeMostrarMensajeError() {
+        composeTestRule.setContent { LoginScreen() }
+
+        composeTestRule.onNodeWithTag(&#34;username_input&#34;).performTextInput(&#34;hacker&#34;)
+        composeTestRule.onNodeWithTag(&#34;password_input&#34;).performTextInput(&#34;password&#34;)
+        composeTestRule.onNodeWithTag(&#34;login_button&#34;).performClick()
+
+        composeTestRule.onNodeWithTag(&#34;result_message&#34;)
+            .assertIsDisplayed()
+            .assertTextEquals(&#34;Credenciales Incorrectas&#34;)
+    }
+}
+</code></pre>
+<h2 is-upgraded><strong>Ejecución Local (El Ensayo)</strong></h2>
+<p>Antes de subir a la nube, probemos que funciona en tu máquina.</p>
+<ol type="1">
+<li>Conecta tu dispositivo o inicia un emulador.</li>
+<li>En el archivo <code>LoginTest.kt</code>, verás unos iconos de &#34;Play&#34; verdes al lado de la clase y de cada función <code>@Test</code>.</li>
+<li>Haz clic en el Play al lado de <code>class LoginTest</code> para correr ambos tests.</li>
+</ol>
+<p><strong>Resultado Esperado:</strong></p>
+<ul>
+<li>Verás la app abrirse y cerrarse rápidamente dos veces en el emulador.</li>
+<li>En la ventana &#34;Run&#34; de Android Studio, verás las barras verdes de éxito.</li>
+</ul>
+<p class="image-container"><img alt="img-04" src="img/b11669ee9c8cfcc1.png"></p>
+<h2 is-upgraded><strong>Compilación de los Artefactos de Prueba</strong></h2>
+<p>Ahora viene la parte clave para Firebase. Necesitamos empaquetar estos tests en un APK.</p>
+<p>Abre la terminal de Android Studio y ejecuta nuevamente:</p>
+<p><strong>Windows:</strong></p>
+<pre><code language="language-powershell" class="language-powershell">.\gradlew assembleDebug assembleAndroidTest
+</code></pre>
+<p><strong>Mac/Linux:</strong></p>
+<pre><code language="language-bash" class="language-bash">./gradlew assembleDebug assembleAndroidTest
+</code></pre>
+<p>Esto actualizará los archivos <code>.apk en app/build/outputs/apk/</code>.</p>
+<ul>
+<li><code>app-debug.apk</code>: La app (actualizada).</li>
+<li><code>app-debug-androidTest.apk</code>: Los tests que acabamos de escribir.</li>
+</ul>
+<h2 is-upgraded><strong>Ejecución en la Nube (Firebase Test Lab)</strong></h2>
+<p>Vamos a subir estos APKs manualmente para ver la diferencia con el Robo Test.</p>
+<ol type="1">
+<li>Ve a <strong>Firebase Console</strong> → <strong>Test Lab</strong>.</li>
+<li>Haz clic en <strong>&#34;Run a test&#34;</strong>.</li>
+<li>Selecciona <strong>Instrumentation</strong> (no Robo).</li>
+<li>Te pedirá dos archivos: <ul>
+<li><strong>App APK:</strong> Sube <code>debug/app-debug.apk</code>.</li>
+<li><strong>Test APK:</strong> Sube <code>androidTest/debug/app-debug-androidTest.apk</code>.</li>
+</ul>
+</li>
+<li>Selecciona un dispositivo (ej: Pixel 5, API 30).</li>
+<li>Inicia la prueba.</li>
+</ol>
+<h2 is-upgraded><strong>Análisis de Resultados</strong></h2>
+<p>Cuando termine (2-3 minutos):</p>
+<ol type="1">
+<li>Verás un resumen: <strong>&#34;2 tests passed&#34;</strong>.</li>
+<li>Haz clic en el detalle. Verás los logs de cada test (<code>loginExitoso</code>, <code>loginFallido</code>).</li>
+<li><strong>Video:</strong> Verás exactamente lo que programaste: escribir, clic, verificar.</li>
+</ol>
+<p class="image-container"><img alt="img-05" src="img/71680fe33d261713.png"></p>
+<p>Acabas de realizar una prueba de <strong>Caja Blanca</strong> en la nube.</p>
+<p>A diferencia del Robo Test que adivina, aquí tú tienes el control total.</p>
+<p><em>Ventaja:</em> Si el test falla, sabes exactamente qué paso falló (ej: &#34;No apareció el mensaje de éxito&#34;).</p>
+<p><em>Desventaja:</em> Tienes que mantener el código del test. Si cambias el <code>testTag</code> en la app, el test se rompe.</p>
+<aside class="special"><p> ¿Lograste ver las barras verdes en Firebase? Si es así, felicidades. Ya sabes automatizar Android. </p>
+<p>Pero... hacer clics en la consola web de Firebase es lento y manual. Un verdadero DevOps usa la terminal. En la próxima sección, aprenderemos a orquestar esto como unos profesionales con <code>gcloud CLI</code>.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="La Línea de Comandos (CLI)" duration="0">
+        <p>Ya hemos validado que nuestros tests funcionan en la nube. Pero seamos honestos: hacer clic en botones en una página web no es escalable. Si tienes que correr esto cada vez que un desarrollador hace un git push, necesitas automatización pura.</p>
+<p>En este módulo, dejaremos el mouse de lado. Entraremos al territorio de <strong>DevOps</strong>. Aprenderemos a controlar la granja de dispositivos de Google directamente desde nuestra terminal usando el <strong>Google Cloud CLI (gcloud)</strong>.</p>
+<p><strong>&#34;Las GUIs son para turistas. La CLI es para residentes.&#34;</strong></p>
+<h2 is-upgraded><strong>Teoría: Integración Continua (CI/CD)</strong></h2>
+<p>¿Por qué aprender comandos crípticos si la consola web es bonita?</p>
+<p>Porque <strong>Jenkins, GitHub Actions y GitLab CI no tienen manos</strong>.</p>
+<p>Para integrar pruebas móviles en un pipeline de despliegue, necesitamos una herramienta que pueda:</p>
+<ol type="1">
+<li>Autenticarse mediante un script (Service Account).</li>
+<li>Subir los APKs automáticamente.</li>
+<li>Esperar el resultado.</li>
+<li>Romper el build (exit code 1) si las pruebas fallan.</li>
+</ol>
+<p>Esa herramienta es <strong>gcloud CLI</strong>, el kit de desarrollo oficial de Google Cloud Platform. Dado que Firebase es parte de GCP, esta es la llave maestra.</p>
+<h2 is-upgraded><strong>Preparación del Entorno (gcloud SDK)</strong></h2>
+<p>Si ya tienes instalado el SDK de Google Cloud, puedes saltar al paso de Login. Si no, es momento de instalarlo.</p>
+<p><strong>Paso 1: Instalación</strong></p>
+<ul>
+<li><strong>Windows:</strong> Descarga e instala el instalador de Google Cloud SDK.</li>
+<li><strong>Mac (Homebrew): </strong><code>brew install --cask google-cloud-sdk</code></li>
+<li><strong>Linux (Debian/Ubuntu):</strong></li>
+</ul>
+<pre><code language="language-bash" class="language-bash">echo &#34;deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main&#34; | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+sudo apt-get update &amp;&amp; sudo apt-get install google-cloud-sdk
+</code></pre>
+<p><strong>Paso 2: Autenticación (auth login)</strong></p>
+<p>Una vez instalado, abre tu terminal y ejecuta:</p>
+<pre><code language="language-bash" class="language-bash">gcloud auth login
+</code></pre>
+<p>Esto abrirá tu navegador. Inicia sesión con la misma cuenta de Gmail que usaste para crear el proyecto en Firebase.</p>
+<p><strong>Paso 3: Selección del Proyecto (</strong></p>
+<p><strong><code>config set</code></strong></p>
+<p><strong>)</strong></p>
+<p>Debemos decirle a la CLI con qué proyecto queremos trabajar. Necesitas el <strong>Project ID</strong> (no el nombre bonito).</p>
+<ul>
+<li>Ve a Firebase Console -&gt; Configuración del proyecto.</li>
+<li>Busca &#34;Project ID&#34; (ej: <code>tallerqa-mobile-12345</code>).</li>
+</ul>
+<p>Ejecuta en la terminal:</p>
+<pre><code language="language-bash" class="language-bash">gcloud config set project TU_PROJECT_ID
+</code></pre>
+<h2 is-upgraded><strong>Exploración de la Granja (</strong><strong><code>models list</code></strong><strong>)</strong></h2>
+<p>Antes de lanzar una prueba, necesitamos saber qué dispositivos están disponibles. No puedes pedir un &#34;iPhone 17&#34; si Google no lo tiene.</p>
+<p>Ejecuta:</p>
+<pre><code language="language-bash" class="language-bash">gcloud firebase test android models list
+</code></pre>
+<p><strong>Salida esperada:</strong></p>
+<p>Verás una tabla gigante con columnas: <code>MODEL_ID</code>, <code>MAKE</code>, <code>MODEL_NAME</code>, <code>FORM</code>, <code>RESOLUTION</code>, <code>OS_VERSION_IDS</code>.</p>
+<ul>
+<li><strong>Busca un modelo físico:</strong> Por ejemplo, Pixel2 o Pixel3.</li>
+<li><strong>Busca un modelo virtual:</strong> Suelen tener IDs genéricos.</li>
+</ul>
+<p><strong>Tip:</strong> Anota el <code>MODEL_ID</code> (ej Pixel 5: <code>redfin</code>) y una versión de API compatible (ej: <code>30</code>). Los usaremos en el comando de ejecución.</p>
+<h2 is-upgraded><strong>Ejecución de Robo Test vía CLI</strong></h2>
+<p>Vamos a replicar lo que hicimos en una sección anterior, pero como pros.</p>
+<p>Asegúrate de estar en la carpeta raíz de tu proyecto Android donde tienes los APKs.</p>
+<p>Construyamos el comando:</p>
+<ul>
+<li><code>gcloud firebase test android run</code>: El comando base.</li>
+<li><code>-type robo</code>: Tipo de prueba.</li>
+<li><code>-app app-debug.apk</code>: La ruta a tu APK (ajusta la ruta si es necesario).</li>
+<li><code>-device model=redfin,version=30,locale=en,orientation=portrait</code>: La especificación del hardware.</li>
+</ul>
+<p><strong>Ejecuta:</strong></p>
+<pre><code language="language-bash" class="language-bash"># Ajusta la ruta al APK según donde estés parado
+gcloud firebase test android run \
+  --type robo \
+  --app app/build/outputs/apk/debug/app-debug.apk \
+  --device model=redfin,version=30,locale=en,orientation=portrait
+</code></pre>
+<p><strong>Lo que verás:</strong></p>
+<ol type="1">
+<li><code>Uploading [app-debug.apk] to Firebase Test Lab...</code></li>
+<li><code>Raw results will be stored in your GCS bucket at [gs://...]</code></li>
+<li><code>Test [matrix-1234] has been created in the Google Cloud.</code></li>
+<li>Un stream de logs en vivo indicando el progreso.</li>
+</ol>
+<p class="image-container"><img alt="img-06" src="img/eda6b2570418527f.png"></p>
+<h2 is-upgraded><strong>La Matriz de Pruebas (Instrumentation en Paralelo)</strong></h2>
+<p>Aquí es donde la nube brilla. Vamos a ejecutar nuestros tests de Espresso en <strong>dos dispositivos diferentes al mismo tiempo</strong>. Esto se llama <strong>Test Matrix</strong>.</p>
+<p>Vamos a pedir:</p>
+<ol type="1">
+<li>Un <strong>Pixel 5</strong> con Android 30 (API Level).</li>
+<li>Un <strong>Pixel 2 (Arm)</strong> (virtual) con Android 29.</li>
+</ol>
+<p><strong>Ejecuta este comando maestro:</strong></p>
+<pre><code language="language-bash" class="language-bash">gcloud firebase test android run \
+  --type instrumentation \
+  --app app/build/outputs/apk/debug/app-debug.apk \
+  --test app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+  --device model=redfin,version=30,locale=en,orientation=portrait \
+  --device model=Pixel2.arm,version=29,locale=es,orientation=landscape \
+  --timeout 90s
+</code></pre>
+<p><strong>Análisis del Comando:</strong></p>
+<ul>
+<li><code>-type instrumentation</code>: Ahora usamos nuestros tests de Espresso.</li>
+<li><code>-test</code>: Añadimos el APK de pruebas.</li>
+<li><code>-device</code>: Repetimos la bandera dos veces. Esto le dice a FTL: <em>&#34;Crea una matriz con estos dos entornos&#34;</em>.</li>
+<li><code>-timeout 90s</code>: Si el test se cuelga, mátalo al minuto y medio (ahorra dinero).</li>
+</ul>
+<h2 is-upgraded><strong>Interpretación de la Salida CLI</strong></h2>
+<p>Al finalizar, verás una tabla resumen en tu terminal:</p>
+<pre><code>More details are available at [ https://console.firebase.google.com/project/....
+┌─────────┬────────────────────────────┬─────────────────────┐
+│ OUTCOME │      TEST_AXIS_VALUE       │     TEST_DETAILS    │
+├─────────┼────────────────────────────┼─────────────────────┤
+│ Passed  │ Pixel2.arm-29-es-landscape │ 3 test cases passed │
+│ Passed  │ redfin-30-en-portrait      │ 3 test cases passed │
+└─────────┴────────────────────────────┴─────────────────────┘
+</code></pre>
+<p>Si ves <strong>Passed</strong> en ambas filas, acabas de verificar compatibilidad cruzada (Cross-Compatibility) en segundos.</p>
+<ul>
+<li>El enlace <code>https://console.firebase...</code> te lleva al reporte web con los videos y logs detallados que vimos en los módulos anteriores.</li>
+<li>El enlace <code>gs://...</code> te lleva al <strong>Google Cloud Storage</strong> donde están los archivos crudos (XML de JUnit, Logcat) listos para ser parseados por Jenkins o SonarQube.</li>
+</ul>
+<p>Este comando es el que pondrías en un archivo <code>.yml</code> de GitHub Actions.</p>
+<p>Automatizar la ejecución de pruebas permite detectar regresiones (bugs introducidos por código nuevo) antes de que lleguen a QA manual.</p>
+<p><strong>Costo:</strong> Ojo con la matriz. Si pides 10 dispositivos y tu test dura 5 minutos, consumirás 50 minutos de tu cuota de Firebase. Usa dispositivos virtuales para desarrollo y físicos solo para Release Candidates.</p>
+<aside class="special"><p> Ya no eres un usuario de Firebase, eres un **Operador**. </p>
+<p>Ahora que dominamos la herramienta, vamos a poner a prueba tu temple con situaciones de la vida real en el la próxima sección de Desafíos Prácticos.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Desafíos Prácticos" duration="0">
+        <p>Hasta ahora, te hemos llevado de la mano: creamos la app, escribimos los tests y configuramos la nube. Pero en el mundo real, los bugs no son tan obvios como un botón que dice &#34;Login&#34;. Los bugs reales se esconden en la rotación de pantalla, en versiones antiguas de Android y en flujos de usuario específicos.</p>
+<p>En esta sección, te enfrentarás a <strong>dos desafíos</strong> diseñados para simular situaciones de crisis en un equipo de QA Mobile.</p>
+<p><strong>Regla de Oro:</strong> Intenta resolver los desafíos por tu cuenta antes de mirar las soluciones. El aprendizaje real ocurre cuando ves un reporte de error en rojo y tienes que averiguar por qué.</p>
+<h2 is-upgraded>Desafío 1: El Sabotaje (Crash Detection)</h2>
+<p><strong>Contexto del Negocio:</strong></p>
+<p>Un desarrollador Junior acaba de subir un cambio. Dice que arregló un bug, pero sospechamos que introdujo un &#34;Easter Egg&#34; que hace crashear la aplicación bajo condiciones específicas. Tu trabajo es encontrar ese crash usando la nube.</p>
+<p><strong>Preparación (El Sabotaje):</strong></p>
+<p>Vas a introducir un bug intencional en tu <code>MainActivity.kt</code>.</p>
+<p>Modifica el comportamiento del botón de Login para que lance una excepción si el usuario escribe &#34;crash&#34;.</p>
+<pre><code language="language-kotlin" class="language-kotlin">// En MainActivity.kt, dentro del onClick del Button:
+Button(
+    onClick = {
+        if (username == &#34;crash&#34;) {
+            throw RuntimeException(&#34;¡Boom! La app explotó por un bug crítico.&#34;)
+        }
+        // ... resto de tu lógica (admin/1234) ...
+    },
+    // ... modifiers ...
+)
+</code></pre>
+<p><em>Compila de nuevo el APK (</em><code>gradlew assembleDebug</code><em>).</em></p>
+<p><strong>Tu Misión:</strong></p>
+<p>Configura una prueba en <strong>Firebase Test Lab</strong> que detecte este crash automáticamente.</p>
+<ol type="1">
+<li>No puedes usar pruebas instrumentadas (Espresso). Debes usar un <strong>Robo Test</strong>.</li>
+<li>El Robo por defecto no escribirá &#34;crash&#34;. Debes crear un <strong>Robo Script</strong> (<code>bug_trigger.json</code>) que obligue al robot a escribir &#34;crash&#34; en el campo de usuario y presionar el botón.</li>
+<li>Sube el APK y el Script a Firebase Console.</li>
+</ol>
+<p><strong>Criterio de Éxito:</strong></p>
+<ul>
+<li>El reporte de Firebase debe mostrar un círculo rojo grande.</li>
+<li>En la pestaña &#34;Stack Trace&#34; debes ver: j<code>ava.lang.RuntimeException: ¡Boom! La app explotó...</code>.</li>
+</ul>
+<h2 is-upgraded>Desafío 2: El Comandante de la Matriz (Cross-Device Testing)</h2>
+<p><strong>Contexto del Negocio:</strong></p>
+<p>El equipo de marketing quiere lanzar la app en mercados emergentes. Nos preocupa que la interfaz (UI) se rompa en teléfonos con pantallas pequeñas y baja resolución.</p>
+<p>No tenemos presupuesto para comprar estos teléfonos viejos.</p>
+<p><strong>Tu Misión:</strong></p>
+<p>Usa la <strong>gcloud CLI</strong> para ejecutar tu prueba de Espresso (<code>LoginTest.kt</code>) simultáneamente en 3 escenarios muy distintos:</p>
+<ol type="1">
+<li><strong>Gama Alta Moderna:</strong> Un Pixel 10 (o el modelo más nuevo disponible) en orientación Vertical.</li>
+<li><strong>Tablet:</strong> Un dispositivo virtual tipo Tablet en orientación Horizontal.</li>
+<li><strong>Gama Baja Antigua:</strong> Un dispositivo virtual con API 27 (Android 8.1) y baja resolución (ej: <code>Redmi 6A</code>).</li>
+</ol>
+<p><strong>Requerimientos:</strong></p>
+<ul>
+<li>Debes construir un solo comando gcloud que dispare las 3 pruebas.</li>
+<li>Debes usar la bandera <code>--timeout</code> para evitar costos excesivos.</li>
+</ul>
+<p><strong>Criterio de Éxito:</strong></p>
+<ul>
+<li>La terminal debe mostrar una tabla con 3 filas.</li>
+<li>Todas las filas deben decir <strong>Passed</strong> (o Failed si la UI no se adapta, lo cual también es un hallazgo válido).</li>
+</ul>
+<h2 is-upgraded><strong>Soluciones Sugeridas (¡Solo para emergencias!)</strong></h2>
+<p><strong>Desafío 1 (Robo Script del Crash)</strong></p>
+<p>Debes crear un archivo <code>bug_trigger.json</code> similar a este. Nota que el <code>replacementText</code> es la clave.</p>
+<pre><code language="language-json" class="language-json">[
+  {
+    &#34;eventType&#34;: &#34;VIEW_TEXT_CHANGED&#34;,
+    &#34;timestamp&#34;: 1000,
+    &#34;replacementText&#34;: &#34;crash&#34;, 
+    &#34;elementDescriptors&#34;: [
+      {
+        &#34;className&#34;: &#34;android.widget.EditText&#34;,
+        &#34;groupViewId&#34;: 0,
+        &#34;resourceId&#34;: &#34;&#34;,
+        &#34;contentDescription&#34;: &#34;&#34;,
+        &#34;text&#34;: &#34;Usuario&#34;
+      }
+    ]
+  },
+  {
+    &#34;eventType&#34;: &#34;VIEW_CLICKED&#34;,
+    &#34;timestamp&#34;: 3000,
+    &#34;elementDescriptors&#34;: [
+      {
+        &#34;className&#34;: &#34;android.widget.Button&#34;,
+        &#34;text&#34;: &#34;Ingresar&#34;
+      }
+    ]
+  }
+]
+</code></pre>
+<p>Sube este archivo en la sección &#34;Robo directives&#34; de Firebase Console al lanzar el test.</p>
+<p><strong>Desafío 2 (Comando gcloud Matrix)</strong></p>
+<p>Primero, usa <code>gcloud firebase test android models list</code> para obtener los IDs correctos. Asumiendo que existen, el comando sería:</p>
+<pre><code language="language-bash" class="language-bash">gcloud firebase test android run \
+  --type instrumentation \
+  --app app/build/outputs/apk/debug/app-debug.apk \
+  --test app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+  --device model=rango,version=36,locale=en,orientation=portrait \
+  --device model=AndroidTablet270dpi.arm,version=30,locale=en,orientation=landscape \
+  --device model=cactus,version=27,locale=es,orientation=portrait \
+  --timeout 3m
+</code></pre>
+<p><em>Nota: Es posible que </em></p>
+<p><em><code>Pixel 10 Pro Fold</code></em></p>
+<p><em> no esté disponible gratis. Ajusta los modelos según la lista disponible.</em></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Referencias y Recursos Adicionales" duration="0">
+        <p>Este taller ha sido diseñado para proporcionar una base sólida en la automatización profesional, alineada con las mejores prácticas de la industria actual.</p>
+<h2 is-upgraded>Créditos</h2>
+<p>Autor: Wilmer Arévalo</p>
+<p>Rol: Profesional en Proyectos de Investigación</p>
+<p>Departamento: Centro de Investigación, Facultad de Ingeniería, Universidad de los Andes</p>
+<p>Fecha de creación/actualización: Marzo de 2026</p>
+<h2 is-upgraded>Referencias Oficiales</h2>
+<p>Todo el contenido de este taller está basado en la documentación oficial más reciente:</p>
+<ul>
+<li><strong>ADB Cheatsheet: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fadbshell.com%2F" target="_blank"><strong>adbshell.com</strong></a></li>
+<li><strong>Firebase Test Lab Docs: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Ffirebase.google.com%2Fdocs%2Ftest-lab" target="_blank"><strong>firebase.google.com/docs/test-lab</strong></a></li>
+<li><strong>Compose Testing Cheat Sheet: </strong><a href="https://www.google.com/url?sa=E&q=https%3A%2F%2Fdeveloper.android.com%2Fdevelop%2Fui%2Fcompose%2Ftesting" target="_blank"><strong>android.dev/develop/ui/compose/testing</strong></a></li>
+</ul>
+<h2 is-upgraded><strong>Soporte y Dudas</strong></h2>
+<p>Si tienen dudas al implementar esto en sus proyectos reales o encuentran problemas con la configuración:</p>
+<ul>
+<li><strong>Canal de Slack/Teams:</strong> Puede hacer las preguntas a través de los medios habilitados y los profesores, tutores y monitores podrán ayudar con la aclaración</li>
+<li><strong>Email de Contacto:</strong> w.arevalo@uniandes.edu.co</li>
+</ul>
+<aside class="special"><p> Repositorio del Taller </p>
+<p>El código final de este ejercicio está disponible en: https://github.com/LensesResearchLab/material-educativo-investigacion/tree/testlab_adb_mobile</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2026-03-03T15:34:27-05:00",
+  "id": "testlab_adb_mobile",
+  "duration": 0,
+  "title": "Android Cloud Testing con Firebase Test Lab y ADB",
+  "summary": "Android Cloud Testing con Firebase Test Lab y ADB",
+  "source": "testlab_adb_mobile.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "tutorial",
+    "taller",
+    "pruebasautomatizadas",
+    "software",
+    "mobile",
+    "adb",
+    "ftl",
+    "testlab",
+    "android",
+    "studio"
+  ],
+  "tags": [
+    "mobile"
+  ],
+  "feedback": "https://github.com/LensesResearchLab/material-educativo-investigacion/issues",
+  "url": "testlab_adb_mobile"
+}
