@@ -1,0 +1,40 @@
+[
+  {
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 1000,
+    "replacementText": "admin",
+    "elementDescriptors": [
+      {
+        "className": "android.widget.EditText",
+        "groupViewId": 0,
+        "resourceId": "",
+        "contentDescription": "",
+        "text": "Usuario"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_TEXT_CHANGED",
+    "timestamp": 2000,
+    "replacementText": "1234",
+    "elementDescriptors": [
+      {
+        "className": "android.widget.EditText",
+        "groupViewId": 0,
+        "resourceId": "",
+        "contentDescription": "",
+        "text": "Contraseña"
+      }
+    ]
+  },
+  {
+    "eventType": "VIEW_CLICKED",
+    "timestamp": 3000,
+    "elementDescriptors": [
+      {
+        "className": "android.widget.Button",
+        "text": "Ingresar"
+      }
+    ]
+  }
+]
