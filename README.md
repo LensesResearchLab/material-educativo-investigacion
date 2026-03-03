@@ -762,7 +762,7 @@ Cuando termine (2-3 minutos):
 2. Haz clic en el detalle. Verás los logs de cada test (`loginExitoso`, `loginFallido`).
 3. **Video:** Verás exactamente lo que programaste: escribir, clic, verificar.
 
-<img width="1512" height="618" alt="img-06" src="https://github.com/user-attachments/assets/49865923-2f50-451c-be95-cd54cea09b6e" />
+<img width="1512" height="838" alt="img-05" src="https://github.com/user-attachments/assets/49080698-1681-4de1-9c54-e895e84788f1" />
 
 Acabas de realizar una prueba de **Caja Blanca** en la nube.
 
@@ -891,7 +891,7 @@ gcloud firebase test android run \
 3. `Test [matrix-1234] has been created in the Google Cloud.`
 4. Un stream de logs en vivo indicando el progreso.
 
-<img width="1512" height="838" alt="img-05" src="https://github.com/user-attachments/assets/49080698-1681-4de1-9c54-e895e84788f1" />
+<img width="1512" height="618" alt="img-06" src="https://github.com/user-attachments/assets/49865923-2f50-451c-be95-cd54cea09b6e" />
 
 ### **La Matriz de Pruebas (Instrumentation en Paralelo)**
 
