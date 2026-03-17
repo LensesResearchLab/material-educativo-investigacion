@@ -1,0 +1,21 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2026-03-12T21:20:52Z",
+  "id": "",
+  "duration": 0,
+  "title": "Auditorías de Accesibilidad en Entornos Web y Móviles",
+  "authors": "Juan Diego Yepes",
+  "summary": "Tutorial que enseña los fundamentos de WCAG 2.2, las barreras de accesibilidad y la realización de auditorías mediante Lighthouse y Android Accessibility Scanner.",
+  "source": "1ZAURRG3bVwXMMwQzGxFQH2Brz9UrhrMOvVL4LLHO9jQ",
+  "theme": "",
+  "status": [
+    "revisión"
+  ],
+  "category": [],
+  "tags": [],
+  "feedback": "j.yepes@uniandes.edu.co",
+  "url": ""
+}
