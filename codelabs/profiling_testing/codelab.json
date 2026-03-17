@@ -1,0 +1,35 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2026-03-17T17:10:46-05:00",
+  "id": "profiling_testing",
+  "duration": 0,
+  "title": "Ingeniería de Rendimiento 360º (Web, Mobile y Backend)",
+  "summary": "Ingeniería de Rendimiento 360º (Web, Mobile y Backend)",
+  "source": "profiling_testing.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "tutorial",
+    "taller",
+    "pruebasautomatizadas",
+    "software",
+    "mobile",
+    "android",
+    "studio",
+    "devtools",
+    "jmeter",
+    "carga",
+    "stress"
+  ],
+  "tags": [
+    "mobile",
+    "web"
+  ],
+  "feedback": "https://github.com/LensesResearchLab/material-educativo-investigacion/issues",
+  "url": "profiling_testing"
+}

@@ -1,0 +1,751 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Ingeniería de Rendimiento 360º (Web, Mobile y Backend)</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14" ga4id=""></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  codelab-ga4id=""
+                  id="profiling_testing"
+                  title="Ingeniería de Rendimiento 360º (Web, Mobile y Backend)"
+                  environment="web"
+                  feedback-link="https://github.com/LensesResearchLab/material-educativo-investigacion/issues">
+    
+      <google-codelab-step label="Fundamentos de Ingeniería de Rendimiento" duration="0">
+        <p>Hasta ahora, nuestra principal preocupación como Ingenieros de Calidad era responder a la pregunta: <strong>&#34;¿Funciona?&#34;</strong>. A partir de este momento, la pregunta cambia a: <strong>&#34;¿Funciona bajo presión?&#34;</strong>.</p>
+<p>Este tutorial está diseñado para establecer el vocabulario y los conceptos matemáticos que diferencian a un Tester Funcional de un Ingeniero de Rendimiento (Performance Engineer).</p>
+<p><strong>&#34;Un sistema que responde correctamente, pero tarda 10 segundos en hacerlo, está funcionalmente roto para el usuario.&#34;</strong></p>
+<h2 is-upgraded>El Mito del &#34;Funciona rápido en mi máquina&#34;</h2>
+<p>Todo desarrollador o QA ha dicho esta frase alguna vez. Tienes un MacBook Pro M3 o un PC Gamer de última generación, estás conectado a la red local de la oficina (Latencia &lt; 2ms) y eres el <strong>único</strong> usuario probando la aplicación. Obviamente, todo carga al instante.</p>
+<p>Pero el mundo real es un lugar hostil:</p>
+<ul>
+<li>Tus usuarios están en un tren perdiendo cobertura 4G a cada kilómetro.</li>
+<li>Tienen teléfonos Android de gama baja de hace más de 4 años con procesadores lentos y memoria fragmentada.</li>
+<li>No hay un solo usuario; hay 5,000 personas intentando comprar entradas para un concierto en el mismo milisegundo.</li>
+</ul>
+<p>La Ingeniería de Rendimiento se encarga de simular este &#34;mundo real&#34; antes de que la aplicación salga a producción.</p>
+<h2 is-upgraded>Client-Side vs. Server-Side Performance</h2>
+<p>El rendimiento no es un concepto monolítico. Se divide en dos campos de batalla distintos, y un error común es medir solo uno de ellos.</p>
+<p class="image-container"><img alt="img-00" src="img/3296a0b7cd549f57.png"></p>
+<ol type="1">
+<li><strong>Server-Side (Backend):</strong> Es el tiempo que tarda el servidor en procesar la petición y devolver los datos. Si la base de datos es lenta o el servidor no tiene CPU suficiente, esto falla. (Aquí usaremos <strong>JMeter</strong>).</li>
+<li><strong>Client-Side (Frontend/Mobile):</strong> Es el tiempo que tarda el dispositivo del usuario en dibujar los datos en la pantalla. Si el servidor respondió en 20ms, pero la aplicación web descargó 5MB de JavaScript que el procesador del celular tardó 3 segundos en ejecutar, el usuario experimentará una aplicación lenta. (Aquí usaremos <strong>Chrome DevTools y Android Profiler</strong>).</li>
+</ol>
+<h2 is-upgraded>La Taxonomía de las Pruebas de Rendimiento</h2>
+<p>No existe una sola &#34;Prueba de Carga&#34;. Dependiendo de lo que queramos descubrir, aplicamos diferentes perfiles de tráfico.</p>
+<ol type="1">
+<li><strong>Pruebas de Carga (Load Testing):</strong><ul>
+<li><em>Objetivo:</em> Verificar que el sistema soporta el tráfico <strong>esperado</strong> en el día a día.</li>
+<li><em>Ejemplo:</em> Simular 500 usuarios navegando simultáneamente durante 1 hora.</li>
+</ul>
+</li>
+<li><strong>Pruebas de Estrés (Stress Testing):</strong><ul>
+<li><em>Objetivo:</em> Encontrar el <strong>punto de quiebre</strong>. Vamos subiendo la carga hasta que el servidor colapsa (da errores 500 o deja de responder). Sirve para saber cuál es nuestro límite máximo absoluto.</li>
+</ul>
+</li>
+<li><strong>Pruebas de Picos (Spike Testing):</strong><ul>
+<li><em>Objetivo:</em> Evaluar cómo el sistema maneja aumentos <strong>extremos y repentinos</strong> de tráfico, y si puede recuperarse después.</li>
+<li><em>Ejemplo:</em> El minuto exacto en que empieza el &#34;Black Friday&#34; o se envían notificaciones Push a 1 millón de usuarios.</li>
+</ul>
+</li>
+<li><strong>Pruebas de Resistencia (Endurance / Soak Testing):</strong><ul>
+<li><em>Objetivo:</em> Mantener una carga moderada durante un <strong>largo periodo</strong> (12 a 72 horas).</li>
+<li><em>Ejemplo:</em> Se usa exclusivamente para detectar <strong>Fugas de Memoria (Memory Leaks)</strong> que no se notan en una prueba de 10 minutos, pero que eventualmente tiran el servidor al cabo de dos días.</li>
+</ul>
+</li>
+</ol>
+<h2 is-upgraded>El Lenguaje del Rendimiento (Métricas Clave)</h2>
+<p>Para reportar problemas de rendimiento, no podemos decir &#34;va lento&#34;. Necesitamos hablar con precisión matemática.</p>
+<ul>
+<li><strong>Throughput (Rendimiento/Tasa de transferencia):</strong> ¿Cuántas peticiones por segundo (RPS) o transacciones por segundo (TPS) puede manejar el sistema?</li>
+<li><strong>Latency (Latencia):</strong> El tiempo que tarda un paquete de datos en viajar desde el cliente al servidor y volver. Es un problema de física y redes, no de código.</li>
+<li><strong>Response Time (Tiempo de Respuesta):</strong> El tiempo total desde que se envía la petición hasta que se recibe el último byte de respuesta.</li>
+</ul>
+<p><strong>La Trampa del Promedio (Por qué usamos Percentiles)</strong></p>
+<p>Si tienes 10 peticiones que tardan <code>10ms</code> y 1 petición que tarda <code>1000ms</code>, el <strong>promedio</strong> es <code>100ms</code>. Si le dices a tu jefe &#34;El promedio es 100ms&#34;, él pensará que todo está bien. ¡Pero el 10% de tus usuarios esperó un segundo entero!</p>
+<p>Por eso en QA usamos <strong>Percentiles</strong>:</p>
+<ul>
+<li><strong>P90 (Percentil 90):</strong> Significa que el 90% de los usuarios experimentan este tiempo de respuesta <em>o menos</em>. Es la métrica estándar de la industria.</li>
+<li><strong>P99 (Percentil 99):</strong> Nos muestra la experiencia del 1% de los usuarios más desafortunados. Aquí es donde se esconden los problemas de red o las pausas del <em>Garbage Collector</em>.</li>
+</ul>
+<p><strong>Core Web Vitals (El estándar Frontend)</strong></p>
+<p>Para la parte web, Google estandarizó tres métricas críticas que incluso afectan el SEO (posicionamiento) de tu página:</p>
+<ol type="1">
+<li><strong>LCP (Largest Contentful Paint):</strong> Tiempo de carga del elemento más grande en la pantalla (una imagen héroe o un bloque de texto). Mide la <strong>velocidad de carga percibida</strong>.</li>
+<li><strong>CLS (Cumulative Layout Shift):</strong> Mide la <strong>estabilidad visual</strong>. ¿El texto salta de repente porque acaba de cargar una imagen publicitaria arriba y desplazó todo hacia abajo?</li>
+<li><strong>INP (Interaction to Next Paint): </strong><em>(Reemplazó a FID en 2024)</em>. Mide la <strong>capacidad de respuesta</strong>. Cuando el usuario hace clic en un acordeón o añade al carrito, ¿cuánto tarda la página en mostrar un cambio visual que confirme que el clic funcionó?</li>
+</ol>
+<p>Un QA Funcional reporta: &#34;El botón de Login funciona&#34;.</p>
+<p>Un QA de Rendimiento reporta: &#34;El botón de Login soporta 300 TPS continuos con un P90 de 250ms, pero la métrica INP en frontend degrada la experiencia en dispositivos móviles de gama baja debido a un exceso de ejecución en el Hilo Principal (Main Thread)&#34;.</p>
+<aside class="special"><p> Con las bases teóricas y el vocabulario claro, estamos listos para abrir el capó de un navegador web. En la próxima sección, aprenderemos a leer &#34;Cascadas de Red&#34; y a medir los Core Web Vitals usando Chrome DevTools. </p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Frontend - Red y Core Web Vitals" duration="0">
+        <p>En este módulo, no escribiremos código. Usaremos la herramienta de diagnóstico más potente y subestimada del mundo del desarrollo web: <strong>Chrome Developer Tools (DevTools)</strong>.</p>
+<p>Nuestro objetivo es entender cómo viajan los datos desde el servidor hasta el navegador del usuario y cómo esos datos afectan la experiencia visual.</p>
+<p><strong>&#34;El backend puede ser un Ferrari, pero si la carretera (Red) está llena de baches o el peaje (Render-blocking) es lento, el usuario viaja a 10 km/h.&#34;</strong></p>
+<h2 is-upgraded>Teoría: La Anatomía de la Cascada (The Waterfall)</h2>
+<p>Cuando escribes una URL y presionas Enter, no descargas &#34;una página web&#34;. Descargas un documento HTML que contiene <em>instrucciones</em> para descargar docenas (o cientos) de otros archivos: CSS, JavaScript, Imágenes, Fuentes, etc.</p>
+<p>El orden y el tiempo que tardan estas descargas se visualiza en un gráfico llamado <strong>Waterfall (Cascada)</strong>. Aprender a leerlo es la habilidad #1 de un Performance Engineer.</p>
+<p>Cada petición en la cascada tiene fases críticas:</p>
+<ol type="1">
+<li><strong>Queueing (En cola):</strong> El navegador retrasa la petición. Chrome solo permite ~6 conexiones simultáneas por dominio. Si pides 20 imágenes a la vez, 14 se quedan &#34;en cola&#34;.</li>
+<li><strong>DNS Lookup &amp; TCP/SSL:</strong> Tiempo buscando la IP del servidor y estableciendo la conexión segura (Handshake).</li>
+<li><strong>TTFB (Time To First Byte): ¡Métrica Crítica!</strong> Es el tiempo de espera desde que enviamos la petición hasta que el servidor responde con el <em>primer byte</em> de datos. Si el TTFB es alto (ej: &gt; 500ms), el problema <strong>casi siempre es el Backend o la Base de Datos</strong>.</li>
+<li><strong>Content Download:</strong> El tiempo que tarda el archivo en descargar. Si es alto, el archivo es muy pesado o la red del usuario es muy lenta.</li>
+</ol>
+<h2 is-upgraded>Práctica: Análisis de Red en el Mundo Real</h2>
+<p>Vamos a analizar la carga de un sitio complejo. Usaremos Wikipedia (o cualquier e-commerce pesado que prefieras).</p>
+<p><strong>Paso a Paso:</strong></p>
+<ol type="1">
+<li>Abre Google Chrome en una pestaña de incógnito (para evitar que tus extensiones ensucien los datos).</li>
+<li>Abre DevTools: Presiona <code>F12</code> o <code>Ctrl+Shift+I</code> (Windows) / <code>Cmd+Option+I</code> (Mac).</li>
+<li>Ve a la pestaña <strong>Network (Red)</strong>.</li>
+<li><strong>Configuración vital para QA:</strong><ul>
+<li>Marca la casilla <strong>&#34;Disable cache&#34;</strong> (Desactivar caché). Si no haces esto, Chrome cargará los archivos desde tu disco duro en 1ms, dándote resultados falsos.</li>
+</ul>
+</li>
+<li>Navega a: <code>https://en.wikipedia.org/wiki/Software_testing</code></li>
+</ol>
+<p><strong>Análisis del Investigador:</strong></p>
+<ul>
+<li>Mira la columna <strong>Waterfall</strong> o <strong>Timing</strong>. Pasa el cursor sobre la primera barra (el documento HTML). Se abrirá un desglose. Observa el valor de <strong>Waiting for server response (TTFB)</strong>.</li>
+<li>En la parte superior, busca el filtro de tipos y selecciona <strong>JS</strong>. ¿Cuántos scripts se descargaron?</li>
+<li>Mira la parte inferior de la pantalla. Verás un resumen estadístico: <ul>
+<li><em>Ejemplo: </em><code>85 requests | 1.2 MB transferred | Finish: 2.5 s | DOMContentLoaded: 800 ms | Load: 1.2 s</code></li>
+<li><em>Load</em> es el momento en que todos los recursos principales terminaron de descargar.</li>
+</ul>
+</li>
+</ul>
+<p class="image-container"><img alt="img-01" src="img/5bfe700f3e976cdf.png"></p>
+<h2 is-upgraded>Práctica: Empatía Digital (Network Throttling)</h2>
+<p>Probar con fibra óptica de 1 Gbps es un engaño. Vamos a simular cómo vive el usuario promedio en una red móvil inestable.</p>
+<ol type="1">
+<li>En la misma pestaña <strong>Network</strong>, busca el menú desplegable que dice <strong>&#34;No throttling&#34;</strong> (Sin limitación).</li>
+<li>Cámbialo a <strong>&#34;Slow 4G&#34;</strong> (o &#34;Fast 3G&#34; dependiendo de tu versión de Chrome).</li>
+<li>Vuelve a cargar la página de Wikipedia (<code>F5</code>).</li>
+</ol>
+<p><strong>¿Qué pasó?</strong></p>
+<ul>
+<li>El tiempo de Load pasó probablemente de 1.2s a 5s o más.</li>
+<li>Si miras la cascada, la barra de <strong>Content Download</strong> de las imágenes grandes ahora es larguísima.</li>
+<li><em>Lección de QA:</em> Aquí es donde detectas que los desarrolladores están enviando imágenes de 5MB sin comprimir para mostrarlas en un recuadro de 100x100 píxeles.</li>
+</ul>
+<h2 is-upgraded>Teoría y Práctica: Core Web Vitals (Lighthouse)</h2>
+<p>Mirar peticiones individuales es útil para depurar, pero para dar un reporte a gerencia necesitamos <strong>Métricas de Experiencia de Usuario</strong>. Google definió los <strong>Core Web Vitals</strong>:</p>
+<ol type="1">
+<li><strong>LCP (Largest Contentful Paint):</strong> ¿Cuánto tarda en aparecer lo más importante? (Debe ser &lt; 2.5 segundos).</li>
+<li><strong>CLS (Cumulative Layout Shift):</strong> ¿La página &#34;tiembla&#34; o los botones se mueven mientras carga? (Debe ser &lt; 0.1).</li>
+<li><strong>INP (Interaction to Next Paint):</strong> Cuando hago clic en un botón, ¿cuánto tarda el navegador en procesar el JS y mostrar un cambio visual? (Debe ser &lt; 200 milisegundos).</li>
+</ol>
+<p><strong>Generando tu Primer Reporte Lighthouse</strong></p>
+<p>Chrome tiene una herramienta de auditoría automatizada integrada.</p>
+<ol type="1">
+<li>Ve a la pestaña <strong>Lighthouse</strong> en DevTools.</li>
+<li>Selecciona: <ul>
+<li><strong>Mode:</strong> Navigation (Default).</li>
+<li><strong>Device:</strong> Mobile.</li>
+<li><strong>Categories:</strong> Performance (Puedes desmarcar Accessibility, SEO, etc. por ahora).</li>
+</ul>
+</li>
+<li>Haz clic en <strong>&#34;Analyze page load&#34;</strong>.</li>
+</ol>
+<p>Chrome tomará el control. Achicará la ventana (simulando un Moto G Power), estrangulará la CPU (simulando un procesador móvil lento) y simulará una red 4G. Al terminar, te dará un puntaje del 0 al 100.</p>
+<p class="image-container"><img alt="img-02" src="img/6767f9f3efb11172.png"></p>
+<p><strong>Interpretación del Reporte QA:</strong></p>
+<p>Baja hasta la sección <strong>&#34;Opportunities&#34; (Oportunidades)</strong> y <strong>&#34;Diagnostics&#34;</strong>. Aquí es donde un SDET brilla. Encontrarás hallazgos como:</p>
+<ul>
+<li><em>Eliminate render-blocking resources:</em> Significa que hay un archivo CSS o JS en el  que está obligando al navegador a detener el dibujado de la pantalla hasta que se descargue.</li>
+<li><em>Properly size images:</em> Imágenes gigantes mostradas en espacios pequeños.</li>
+<li><em>Reduce unused JavaScript:</em> Código muerto que está consumiendo ancho de banda y CPU.</li>
+</ul>
+<p class="image-container"><img alt="img-03" src="img/ba3cbf895a36978c.png"></p>
+<p>Como Tester Funcional, si haces clic y el menú se abre, el test &#34;Pasa&#34;.</p>
+<p>Como Tester de Rendimiento, si al hacer clic el menú tarda 400ms en abrirse (INP alto) porque el navegador está ocupado ejecutando un script de analíticas (Google Tag Manager, trackers), el test <strong>Falla</strong>.</p>
+<p>Los Core Web Vitals son aserciones de calidad innegociables en 2026.</p>
+<aside class="special"><p> ¿Pudiste generar el reporte de Lighthouse y ver la cascada de red en tu navegador? </p>
+<p>Si la red ya no tiene secretos para ti, prepárate. En la siguiente sección, vamos a sumergirnos en el interior del navegador: El Motor de JavaScript. Aprenderemos a grabar perfiles de CPU y a cazar fugas de memoria web.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Frontend - CPU y Memoria" duration="0">
+        <p>La red nos dice qué tan rápido llegan los datos, pero ahora vamos a ver qué hace el navegador con ellos.</p>
+<p>Aquí dejamos de mirar los cables y abrimos el cerebro del navegador: el <strong>Motor V8</strong> y el <strong>Motor de Renderizado (Blink)</strong>. Si alguna vez has usado una página web que hace que los ventiladores de tu computadora suenen como un avión despegando, el problema está aquí.</p>
+<p><strong>&#34;Si tu código JavaScript tarda 200 milisegundos en ejecutarse, tu pantalla estará congelada durante 200 milisegundos. A eso lo llamamos ‘Jank&#39;.&#34;</strong></p>
+<h2 is-upgraded>Teoría: El Dictador del Navegador (El Hilo Principal)</h2>
+<p>Los navegadores web modernos tienen una limitación arquitectónica fundamental: <strong>JavaScript es de un solo hilo (Single-Threaded)</strong>.</p>
+<p>Este &#34;Hilo Principal&#34; (Main Thread) es el empleado del mes. Lo hace todo:</p>
+<ol type="1">
+<li>Analiza el HTML.</li>
+<li>Calcula los estilos CSS.</li>
+<li>Ejecuta tu código JavaScript.</li>
+<li>Dibuja los píxeles en la pantalla (Paint).</li>
+</ol>
+<p><strong>La regla de los 60 FPS (Cuadros por segundo):</strong></p>
+<p>Para que una animación o el scroll se vean fluidos, la pantalla debe actualizarse 60 veces por segundo.</p>
+<p>Matemática simple: 1000 ms / 60 frames = 16.6 ms por frame.</p>
+<p>Si un bloque de tu código JavaScript tarda <strong>50ms</strong> en ejecutarse, el Hilo Principal está bloqueado. No puede dibujar los siguientes 3 cuadros. El usuario hace scroll y la pantalla &#34;tironea&#34;. Esos son los temidos <strong>Long Tasks</strong> (Tareas Largas), y son los asesinos directos de la métrica <strong>INP (Interaction to Next Paint)</strong> que vimos en el módulo anterior.</p>
+<h2 is-upgraded>Práctica: El Profiler de CPU (Pestaña Performance)</h2>
+<p>Vamos a grabar y diseccionar el trabajo del Hilo Principal.</p>
+<ol type="1">
+<li>Abre DevTools (F12) y ve a la pestaña <strong>Performance (Rendimiento)</strong>.</li>
+<li><strong>Configuración del Laboratorio:</strong> Haz clic en el ícono del engranaje (Capture settings) arriba a la derecha. <ul>
+<li>En <strong>CPU</strong>, selecciona <strong>&#34;4x slowdown&#34;</strong> o <strong>&#34;6x slowdown&#34;</strong>. Esto simula el procesador de un teléfono móvil promedio. Probar con tu CPU i9 o M3 arruinará el experimento.</li>
+</ul>
+</li>
+<li>Haz clic en el botón de <strong>Record</strong> (el círculo gris).</li>
+<li>Interactúa con la página (haz scroll, abre un menú, escribe en un buscador).</li>
+<li>Haz clic en <strong>Stop</strong>.</li>
+</ol>
+<p><strong>Interpretando el Flame Chart (Gráfico de Llamas)</strong></p>
+<p>Chrome generará un gráfico masivo. No te asustes.</p>
+<ol type="1">
+<li><strong>La línea de tiempo superior:</strong> Verás picos rojos. Esos picos indican que los FPS cayeron drásticamente.</li>
+<li><strong>La sección &#34;Main&#34;:</strong> Este es el Hilo Principal. Verás barras de colores apiladas hacia abajo: <ul>
+<li><strong>Amarillo (Scripting):</strong> Ejecución de JavaScript. (Llamadas a funciones, parsing de JSON).</li>
+<li><strong>Morado (Rendering):</strong> Recálculo de estilos CSS y Layout (posición de los elementos).</li>
+<li><strong>Verde (Painting):</strong> Dibujando los píxeles en la pantalla.</li>
+</ul>
+</li>
+<li><strong>Buscando al culpable:</strong> Si ves una barra amarilla muy ancha con un triángulo rojo en la esquina, ¡bingo! Es un <strong>Long Task</strong>. Si haces clic en ella, el panel inferior (&#34;Bottom-Up&#34; o &#34;Call Tree&#34;) te dirá exactamente qué función de JavaScript tardó tanto y en qué línea de código está.</li>
+</ol>
+<p class="image-container"><img alt="img-04" src="img/2d7e10e91af0d790.png"></p>
+<p><strong>El Anti-Patrón: Layout Thrashing (Ataque de Diseño)</strong></p>
+<p>En tu análisis morado (Rendering), podrías ver muchas barras delgadas y repetitivas. Esto sucede cuando un desarrollador hace esto en un bucle:</p>
+<ol type="1">
+<li>Lee el ancho de un elemento (<code>element.offsetWidth</code>).</li>
+<li>Cambia el ancho de otro elemento (<code>element.style.width = '100px'</code>).</li>
+<li>Repite.</li>
+</ol>
+<p>Al cambiar el ancho, el navegador invalida el diseño. Al leer el ancho en la siguiente línea, obligas al navegador a detener el JS y recalcular toda la pantalla sincrónicamente. Esto destruye el rendimiento.</p>
+<h2 is-upgraded>Teoría: Fugas de Memoria en JavaScript (Memory Leaks)</h2>
+<p>JavaScript es un lenguaje con <strong>Garbage Collector (GC)</strong> o Recolector de Basura. Tú no liberas memoria manualmente (como en C++). El GC escanea la memoria periódicamente y elimina los objetos que ya no están referenciados por la aplicación.</p>
+<p><strong>¿Cómo ocurre una fuga entonces?</strong></p>
+<p>Ocurre cuando mantienes una referencia a un objeto que ya no necesitas, engañando al GC para que no lo borre.</p>
+<p><em>Causas comunes:</em></p>
+<ol type="1">
+<li><strong>Event Listeners no eliminados:</strong> Agregas un <code>window.addEventListener('resize', miFuncion)</code>, la página o el componente desaparece (ej. en React/Angular), pero nunca llamaste a <code>removeEventListener</code>.</li>
+<li><strong>Timers olvidados:</strong> Un <code>setInterval</code> corriendo en el fondo para un componente destruido.</li>
+<li><strong>Detached DOM Trees (Árboles DOM Desprendidos):</strong> El peor de todos. Guardas un nodo HTML en una variable global o en un closure, y luego eliminas ese elemento de la pantalla (<code>element.remove()</code>). Aunque ya no se ve, el navegador no puede liberar su memoria porque tu variable de JS lo sigue &#34;sosteniendo&#34;.</li>
+</ol>
+<h2 is-upgraded>Práctica: Cazando Fugas con Heap Snapshots (Pestaña Memory)</h2>
+<p>Si una pestaña de Chrome consume 100MB al abrir, y tras usarla por 20 minutos consume 1.5GB y crashea, tienes una fuga de memoria. Vamos a cazarla usando la <strong>Técnica de los 3 Snapshots</strong>.</p>
+<ol type="1">
+<li>Abre la pestaña <strong>Memory</strong> en DevTools.</li>
+<li>Asegúrate de tener seleccionado <strong>&#34;Heap snapshot&#34;</strong>.</li>
+<li><strong>Paso 1 (Línea Base):</strong> Haz clic en el botón &#34;Take snapshot&#34; (Tomar instantánea). Esto toma una &#34;foto&#34; de toda la memoria actual (Snapshot 1).</li>
+<li><strong>Paso 2 (Acción):</strong> En tu página web, abre un modal (o navega a otra vista en una SPA) y luego ciérralo.</li>
+<li><strong>Paso 3:</strong> Vuelve a hacer clic en &#34;Take snapshot&#34; (Snapshot 2).</li>
+<li><strong>Paso 4 (Confirmación):</strong> Repite la acción (abrir y cerrar el modal) y toma un tercer snapshot (Snapshot 3).</li>
+</ol>
+<p class="image-container"><img alt="img-05" src="img/103c25e85a3329f8.png"></p>
+<p><strong>Analizando la Sangría de Memoria</strong></p>
+<p>Ahora selecciona el <strong>Snapshot 3</strong>.</p>
+<ul>
+<li>En la parte superior (arriba de la tabla), cambia el filtro de &#34;Summary&#34; (Resumen) a <strong>&#34;Comparison&#34; (Comparación)</strong>.</li>
+<li>Compáralo con el <strong>Snapshot 1</strong>.</li>
+<li>En la barra de búsqueda de clases (Class filter), escribe <strong>Detached</strong> o <strong>HTML</strong>.</li>
+</ul>
+<p><strong>El Diagnóstico del SDET:</strong></p>
+<p>Si ves filas que dicen <code>Detached HTMLDivElement</code> y en la columna de &#34;Delta&#34; (Diferencia) dice +5, significa que al abrir y cerrar tu modal dejaste 5 elementos <code><div></code> atrapados en la memoria RAM que el Garbage Collector no pudo limpiar.</p>
+<p>Si haces clic en uno de esos elementos, la ventana inferior <strong>&#34;Retainers&#34; (Retenedores)</strong> te mostrará exactamente qué variable o archivo de JavaScript está impidiendo que ese elemento sea borrado (generalmente, un <em>closure</em> o un array global).</p>
+<p>Las fugas de memoria son asesinos silenciosos. No rompen tus pruebas E2E en Cypress porque tus tests duran 30 segundos y el navegador se cierra.</p>
+<p>Un usuario real deja la pestaña abierta todo el día. Como Ingenieros de Rendimiento, usar la pestaña <em>Memory</em> nos permite encontrar bugs que arruinarían la experiencia en producción después de horas de uso.</p>
+<aside class="special"><p> ¿Lograste grabar un perfil de CPU y ver el famoso Main Thread? </p>
+<p>Si el Frontend Web ya no tiene secretos para ti, es momento de cambiar de ecosistema. En la siguiente sección abandonaremos el navegador web y conectaremos nuestro teléfono Android para ver qué consume la batería de una App Nativa.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Mobile - Android Studio Profiler" duration="0">
+        <p>¡Cambio de ecosistema! Dejamos atrás el navegador web y nos adentramos en el mundo nativo.</p>
+<p>En esta sección vamos a abrir el capó de una aplicación Android. Si en la web un mal rendimiento significa una pantalla lenta, en móvil significa <strong>batería drenada, sobrecalentamiento y el temido mensaje &#34;La aplicación no responde&#34; (ANR)</strong>.</p>
+<p>Para esta sección, utilizaremos la <code>TallerLoginApp</code> que construimos en el taller de Firebase, y la conectaremos al escáner médico más avanzado de Google: <strong>El Android Studio Profiler</strong>.</p>
+<p><strong>&#34;En el desarrollo móvil, la CPU y la Red no son recursos infinitos; son la batería del usuario consumiéndose en tiempo real.&#34;</strong></p>
+<h2 is-upgraded>Teoría: El Hilo de UI y el Fantasma del ANR</h2>
+<p>Al igual que los navegadores, Android tiene un <strong>Main Thread</strong> (Hilo Principal), también conocido como el <strong>UI Thread</strong> (Hilo de Interfaz de Usuario).</p>
+<p>Su trabajo es dibujar la pantalla 60 o 120 veces por segundo (en los teléfonos modernos). Si ejecutas una operación matemática compleja, una consulta a base de datos (Room/SQLite) o una llamada de red en este hilo, la pantalla se congela.</p>
+<ul>
+<li><strong>Jank (Tirones):</strong> Si bloqueas el hilo por más de 16 milisegundos, el usuario nota que la animación &#34;salta&#34; o se traba.</li>
+<li><strong>ANR (Application Not Responding):</strong> Si bloqueas el hilo por <strong>5 segundos</strong>, el sistema operativo Android pierde la paciencia y le muestra al usuario un cuadro de diálogo preguntando si desea cerrar (matar) la aplicación. Para un Ingeniero de Rendimiento, un ANR es un fallo crítico de Nivel 1.</li>
+</ul>
+<h2 is-upgraded>Práctica: Setup y Conexión al Profiler</h2>
+<p>Vamos a conectar nuestra aplicación al monitor de signos vitales.</p>
+<ol type="1">
+<li>Abre <strong>Android Studio</strong> (versión Koala, Ladybug o superior) y carga tu proyecto <code>TallerLoginApp</code>.</li>
+<li>Conecta tu dispositivo físico por USB (recomendado para métricas reales) o inicia el Emulador.</li>
+<li><strong>Ejecuta la app</strong> haciendo clic en el botón normal de &#34;Run&#34; (el triángulo verde).</li>
+<li>En la barra inferior de Android Studio, busca la pestaña <strong>&#34;Profiler&#34;</strong> (o ve a <em>View &gt; Tool Windows &gt; Profiler</em>).</li>
+<li>Selecciona tu dispositivo y el paquete de tu app (<code>com.example.tallerloginapp</code>).</li>
+</ol>
+<p>Inmediatamente, verás un listado de Tasks para hacer profiling</p>
+<p class="image-container"><img alt="img-06" src="img/b3cd851349f5d682.png"></p>
+<h2 is-upgraded>El CPU Profiler: Cazando el Código Lento</h2>
+<p>Vamos a investigar qué hace exactamente el procesador cuando el usuario interactúa con la app.</p>
+<ol type="1">
+<li>En la línea de tiempo del Profiler, haz clic en la card que dice <strong>Find CPU Hotspots</strong>. Esto abrirá el inspector detallado.</li>
+<li>En la parte inferior seleccionas &#34;Start profiler task from&#34; <strong>Process Star (Restart process)</strong>, e inicias la tarea de profiling.</li>
+<li>En tu aplicación (en el teléfono o emulador), haz clic en el botón de &#34;Ingresar&#34; un par de veces.</li>
+<li>Haz clic en <strong>Stop</strong>.</li>
+</ol>
+<p>Android Studio procesará los datos y te mostrará un panel complejo.</p>
+<p class="image-container"><img alt="img-07" src="img/61110f6dcaafd95e.png"></p>
+<p><strong>Interpretando el Flame Chart (Gráfico de Llamas Nativo)</strong></p>
+<p>El análisis móvil es ligeramente distinto al web. Verás varias pestañas: <em>Call Chart</em>, <em>Flame Chart</em>, <em>Top Down</em> y <em>Bottom Up</em>.</p>
+<p>Ve a la pestaña <strong>Flame Chart</strong>.</p>
+<ul>
+<li><strong>El Eje X (Horizontal):</strong> No representa tiempo cronológico, sino el tiempo total agregado que tomó una función. Si una barra es muy ancha, consumió mucha CPU.</li>
+<li><strong>El Eje Y (Vertical):</strong> Representa la pila de llamadas (Call Stack). Quién llamó a quién. onClick llamó a validarCredenciales, que llamó a encriptarPassword.</li>
+<li><strong>El Color:</strong> En Android Studio, los métodos del sistema (Android SDK) suelen ser naranjas/rojos, los métodos de librerías de terceros (ej. Retrofit/OkHttp) son azules, y <strong>TUS métodos (tu código Kotlin)</strong> son de color verde.</li>
+</ul>
+<p><strong>El Diagnóstico del SDET:</strong></p>
+<p>Busca barras <strong>verdes muy anchas</strong> en el <code>main</code> thread. Si ves que el método <code>validarCredenciales()</code> es una barra gigante, acabas de encontrar el cuello de botella. En una app real, podrías descubrir que un desarrollador está parseando un JSON de 5MB en el Hilo de UI en lugar de usar una Corrutina de Kotlin (<code>Dispatchers.IO</code>) en segundo plano.</p>
+<p class="image-container"><img alt="img-08" src="img/f6c7592ddc7bc951.png"></p>
+<h2 is-upgraded>El Network Inspector (Intercepción de Red)</h2>
+<p>A diferencia de la web, donde basta con presionar <code>F12</code> para ver las peticiones de red, en las apps móviles el tráfico está oculto e intercederlo externamente requiere proxys complejos (como Charles o Wireshark). Sin embargo, el Profiler de Android nos da visión de rayos X interna.</p>
+<ol type="1">
+<li>Regresa a la vista principal del Profiler (haz clic en el botón de retroceso &lt; arriba a la izquierda).</li>
+<li>Haz clic en la card de <strong>Network</strong>.</li>
+</ol>
+<p><em>(Nota didáctica: Nuestra </em><code>TallerLoginApp</code> <em>no hace peticiones a internet reales aún. Imagina que agregamos una llamada a una API usando Retrofit/OkHttp).</em></p>
+<p><strong>Qué buscar en el Network Profiler:</strong></p>
+<p>Si tu aplicación estuviera haciendo peticiones a un servidor backend, verías gráficos de barras en tiempo real.</p>
+<ol type="1">
+<li><strong>Connection View:</strong> Haz clic y arrastra sobre la línea de tiempo para seleccionar un rango. En el panel inferior verás una lista de todas las peticiones HTTP/HTTPS.</li>
+<li><strong>Request/Response Details:</strong> Si haces clic en una petición, podrás ver: <ul>
+<li><strong>Headers:</strong> Para verificar si estamos enviando los tokens de autenticación correctos.</li>
+<li><strong>Payload/Body:</strong> Para ver el tamaño de las imágenes o el JSON que estamos descargando.</li>
+<li><strong>Timing:</strong> El tiempo de DNS, conexión y transferencia (TTFB en móvil).</li>
+</ul>
+</li>
+</ol>
+<p><strong>El Diagnóstico del SDET:</strong></p>
+<p>Un error muy común en móvil es el <strong>&#34;Over-fetching&#34;</strong> (Traer datos de más).</p>
+<p>Ejemplo: Vas a la vista de &#34;Perfil&#34; y el Network Profiler muestra que la app descargó un JSON de 2MB. Revisas el <em>Response</em> y ves que el backend envió el historial completo de compras de los últimos 10 años del usuario, cuando la pantalla solo necesita mostrar el &#34;Nombre&#34; y la &#34;Foto&#34;.</p>
+<p>Ese es un hallazgo de rendimiento crítico. Está consumiendo el plan de datos del usuario, agotando la batería para parsear el JSON y volviendo la app lenta.</p>
+<p>Las pruebas E2E con Appium o Espresso pueden pasar con éxito (en verde) incluso si la app descarga 10MB innecesarios o si la CPU llega al 100%.</p>
+<p>Usar el Profiler nos convierte en <strong>Ingenieros de Confiabilidad (Reliability Engineers)</strong>. Aseguramos que la aplicación sea &#34;ciudadana ejemplar&#34; en el dispositivo del usuario.</p>
+<aside class="special"><p> ¿Localizaste el Flame Chart y viste cómo se pintaban los métodos de tu aplicación? </p>
+<p>En la siguiente sección, subiremos la dificultad. Vamos a sabotear nuestra propia aplicación introduciendo una <strong>Fuga de Memoria (Memory Leak)</strong> y usaremos el <em>Memory Profiler</em> para capturarla en el acto antes de que el sistema operativo mate nuestra app por falta de RAM (OOM).</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Mobile - Fugas de Memoria (Heap Dumps)" duration="0">
+        <p>En esta sección, nos enfrentaremos al asesino silencioso más temido por los desarrolladores móviles: <strong>La Fuga de Memoria (Memory Leak)</strong>.</p>
+<p>A diferencia de un error de sintaxis que hace que la app se cierre inmediatamente, una fuga de memoria es insidiosa. La app funciona perfectamente al principio, pero a medida que el usuario navega, la aplicación consume más y más RAM (memoria de acceso aleatorio) hasta que el sistema operativo Android dice: <em>&#34;Esta aplicación está asfixiando al teléfono&#34;</em> y la asesina sin piedad, lanzando un <code>OutOfMemoryError</code> (OOM).</p>
+<p><strong>&#34;Una aplicación que no libera lo que ya no usa, está destinada a ser eliminada por el sistema.&#34;</strong></p>
+<h2 is-upgraded>Teoría: El Ciclo de Vida y el Recolector de Basura (GC)</h2>
+<p>En Android (Kotlin/Java), no liberamos memoria manualmente (como en C o C++). Tenemos un <strong>Garbage Collector (GC)</strong>.</p>
+<p><strong>¿Cómo funciona el GC?</strong></p>
+<p>El GC busca objetos en la memoria (Heap) que ya no tienen ninguna &#34;referencia fuerte&#34; (nadie los está usando ni apuntando a ellos) y los destruye para liberar espacio.</p>
+<p><strong>¿Cómo engañamos al GC (Memory Leak)?</strong></p>
+<p>Las fugas ocurren cuando mantenemos una referencia a un objeto pesado (como un <code>Activity</code>, un <code>Context</code> o un <code>Bitmap</code> de una imagen de 4K) mucho tiempo después de que el usuario ya cerró esa pantalla. Como nuestra variable sigue &#34;sosteniendo&#34; la pantalla, el GC no puede borrarla.</p>
+<p><em>Resultado:</em> El usuario abre la pantalla de Login 10 veces, y en lugar de tener 1 pantalla en memoria, tenemos 10 pantallas fantasma consumiendo RAM.</p>
+<h2 is-upgraded>Práctica: El Sabotaje (Inyectando un Leak Intencional)</h2>
+<p>Para cazar un monstruo, primero debemos crearlo. Vamos a modificar nuestra <code>TallerLoginApp</code> para que filtre memoria de forma agresiva.</p>
+<p>Abre tu proyecto en Android Studio y ve a <code>MainActivity.kt</code>.</p>
+<p><strong>Paso 1: Crear un Objeto Estático Peligroso</strong></p>
+<p>En Kotlin, el equivalente a un <code>static</code> de Java es un <code>companion object</code>. Estos objetos viven durante <strong>toda la vida útil de la aplicación</strong>, no de la pantalla.</p>
+<p>Modifica tu <code>MainActivity</code> agregando este bloque dentro de la clase, pero fuera del <code>onCreate</code>:</p>
+<pre><code language="language-kotlin" class="language-kotlin">class MainActivity : ComponentActivity() {
+
+    // EL SABOTAJE: Una lista estática que vivirá para siempre en la RAM
+    companion object {
+        val memoryLeakList = mutableListOf&lt;ComponentActivity&gt;()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // CULPABLE: Cada vez que se crea esta pantalla (ej. al rotar el teléfono), 
+        // nos guardamos a nosotros mismos en la lista estática.
+        // Nunca nos borramos de la lista al destruir la pantalla (onDestroy).
+        memoryLeakList.add(this)
+
+        setContent {
+            // ... (tu código Compose de LoginScreen) ...
+        }
+    }
+}
+</code></pre>
+<p><strong>Paso 2: Generar el Leak en Vivo</strong></p>
+<ol type="1">
+<li><strong>Ejecuta la App</strong> en el emulador (o dispositivo físico).</li>
+<li>Abre el <strong>Profiler</strong> de Android Studio y conéctalo a tu app.</li>
+<li>Haz clic en la card de <strong>Analyze Memory Usage (Heap Dump)</strong>, atado al proceso actual. Verás un gráfico azul subiendo y bajando (es normal, el GC está trabajando).</li>
+<li><strong>La Acción Destructiva:</strong> En tu emulador, <strong>gira la pantalla</strong> repetidamente (Horizontal -&gt; Vertical -&gt; Horizontal). <ul>
+<li><em>Nota:</em> En Android, girar la pantalla destruye el <code>Activity</code> actual y crea uno nuevo.</li>
+<li>Como nosotros estamos guardando cada nuevo <code>Activity</code> en nuestra <code>memoryLeakList</code> estática, cada vez que giras, agregamos una pantalla entera (con todos sus botones y textos) a la memoria permanente.</li>
+</ul>
+</li>
+</ol>
+<h2 is-upgraded>Análisis Forense: Capturando el Heap Dump</h2>
+<p>Observa el gráfico de memoria azul. Si giraste la pantalla 20 veces, notarás que la línea base del gráfico está escalando como una escalera y nunca baja, incluso si dejas el teléfono quieto.</p>
+<p>¡Tenemos una fuga confirmada! Vamos a averiguar exactamente qué línea de código es la culpable.</p>
+<p><strong>Paso 3: Forzar el GC y Tomar la Foto</strong></p>
+<ol type="1">
+<li>En la parte superior del Memory Profiler, busca el ícono de un <strong>Cubo de Basura</strong> (Force Garbage Collection). Haz clic en él varias veces. <ul>
+<li><em>Objetivo:</em> Le decimos a Android: &#34;Limpia todo lo que puedas limpiar AHORA&#34;. Si la memoria no baja después de esto, el leak es real.</li>
+</ul>
+</li>
+<li>Haz clic en el botón de <strong>&#34;Capture Heap Dump&#34;</strong> (Capturar volcado del montón) o selecciona esa opción en el menú de grabación y presiona <strong>Record</strong>.</li>
+</ol>
+<p><strong>Paso 4: Leyendo el Heap Dump</strong></p>
+<p>Android Studio congelará la app por unos segundos, descargará toda la memoria RAM del teléfono y abrirá un panel complejo con miles de clases.</p>
+<ol type="1">
+<li>En la esquina superior derecha del panel inferior, asegúrate de que esté seleccionado <strong>&#34;Arrange by class&#34;</strong> (Organizar por clase).</li>
+<li>Marca la casilla mágica: <strong>&#34;Show activity/fragment leaks&#34;</strong> (Mostrar fugas de <code>Activity/Fragment</code>) o busca el filtro de advertencias (un triángulo amarillo ⚠️).</li>
+</ol>
+<p>Android Studio es lo suficientemente inteligente para decirte: <em>&#34;Oye, encontré 15 instancias de </em><code>MainActivity</code> <em>en la memoria, pero solo debería haber 1 o 0. Esto es una fuga&#34;</em>.</p>
+<ol type="1">
+<li>Haz clic en <code>MainActivity</code> en la lista.</li>
+<li>En el panel de la derecha (<strong>Instance Details</strong>), verás las copias &#34;fantasma&#34; de tu pantalla. Selecciona una.</li>
+<li>En el panel inferior derecho (<strong>References</strong> o <strong>Paths to GC Roots</strong>), verás <em>quién</em> está sosteniendo a esa pantalla para que no sea borrada.</li>
+</ol>
+<p><strong>¡BINGO!</strong> El Profiler te acaba de decir exactamente qué variable (<code>memoryLeakList</code>) en qué clase (<code>Companion object</code>) está causando que el teléfono se quede sin memoria.</p>
+<p class="image-container"><img alt="img-09" src="img/4bc661f93f0cf4e4.png"></p>
+<h2 is-upgraded>Herramientas de Industria: LeakCanary (Bonus)</h2>
+<p>Leer Heap Dumps manualmente es como leer Matrix. Requiere mucha práctica.</p>
+<p>En el mundo real del QA Automation, usamos una librería llamada <strong>LeakCanary</strong> desarrollada por Square.</p>
+<ul>
+<li><strong>¿Qué hace?</strong> Se instala en la versión de Debug de la app. Si LeakCanary detecta que una pantalla fue destruida pero sigue en memoria 5 segundos después, captura el Heap Dump automáticamente, lo analiza en segundo plano y le muestra una notificación al desarrollador en el teléfono con el árbol exacto del problema (como lo hicimos nosotros, pero 100% automático).</li>
+<li><em>Nota de Arquitectura:</em> Nunca instales LeakCanary en la versión de Producción, solo en los entornos de QA/Dev.</li>
+</ul>
+<p>Un Tester manual reporta: &#34;La app se pone lenta y se cierra después de usarla 30 minutos&#34;. El desarrollador intentará reproducirlo y probablemente no lo logre, marcando el bug como &#34;No reproducible&#34;.</p>
+<p>Un Ingeniero SDET usa el Memory Profiler, toma un Heap Dump, y adjunta la captura de pantalla del &#34;Path to GC Root&#34; en el ticket de Jira, señalando la variable estática exacta que el desarrollador olvidó limpiar. <strong>Esa es la diferencia entre reportar un síntoma y diagnosticar una enfermedad.</strong></p>
+<aside class="special"><p> ¿Lograste hacer subir la memoria girando la pantalla y viste las múltiples instancias de MainActivity en el Heap Dump? </p>
+<p>Con esto concluimos la fase Client-Side (Frontend y Mobile). Has aprendido a auditar navegadores y aplicaciones nativas.</p>
+<p>Es hora de cambiar de liga. En la próxima sección, nos enfrentaremos al monstruo detrás de escena: El Servidor (Backend). Aprenderemos a someter APIs a presión militar usando Apache JMeter.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Backend - Diseño de Pruebas de Carga" duration="0">
+        <p>¡Cambiamos de frente de batalla! Hemos auditado el Frontend (Web) y el Client-Side (Mobile). Pero, ¿qué pasa cuando la aplicación de un usuario funciona perfectamente, pero hay <strong>10,000 usuarios más</strong> haciendo exactamente lo mismo al mismo tiempo?</p>
+<p>Aquí nos convertiremos en directores de orquesta de tráfico web. Dejaremos de simular a un usuario con un cronómetro, y empezaremos a simular a un ejército entero usando <strong>Apache JMeter</strong>.</p>
+<p><strong>&#34;Un servidor web es como un restaurante. Si entra un cliente, la comida sale en 5 minutos. Si entran 500 clientes de golpe, la cocina se incendia.&#34;</strong></p>
+<h2 is-upgraded>Teoría: ¿Qué es JMeter y qué NO es?</h2>
+<p>Apache JMeter es el estándar de la industria open-source para pruebas de carga. Está escrito 100% en Java.</p>
+<p><strong>La Regla de Oro del SDET: </strong><em>JMeter NO es un navegador.</em></p>
+<p>A diferencia de Playwright o Cypress, JMeter no descarga imágenes (a menos que se lo pidas explícitamente), no renderiza CSS y, lo más importante, <strong>NO ejecuta JavaScript</strong>.</p>
+<p>JMeter opera a nivel de protocolo (HTTP/HTTPS, TCP, JDBC, etc.). Envía bytes y recibe bytes. Por lo tanto, sirve exclusivamente para medir el rendimiento del <strong>Servidor/Backend</strong>, no la experiencia visual del usuario.</p>
+<h2 is-upgraded>Práctica: Setup y Tuning (El Secreto de los Profesionales)</h2>
+<p>Para usar JMeter, necesitas tener instalado el JDK de Java (versión 11 o superior, idealmente 17 o 21).</p>
+<ol type="1">
+<li><strong>Descarga:</strong> Ve a la página oficial de Apache JMeter y descarga los binarios de la versión más reciente (5.6+). Descomprime la carpeta.</li>
+<li><strong>El Ajuste de Memoria (Tuning):</strong>Por defecto, JMeter viene configurado para usar solo 1GB de memoria RAM. Si intentas simular miles de usuarios con esa configuración, JMeter crasheará con un <code>OutOfMemoryError</code> antes que tu servidor.<ul>
+<li>Ve a la carpeta bin de JMeter.</li>
+<li>lanzaremos una terminal desde esta ubicación, y ejecutaremos el programa pasando como argumento el nuevo límite de memoria. Para Windows, la extensión es <code>.bat</code> y para Mac es <code>.sh</code>.</li>
+</ul>
+<pre><code language="language-bash" class="language-bash"># Para Mac
+JVM_ARGS=&#34;-Xms1g -Xmx4g&#34; ./jmeter.sh
+</code></pre>
+</li>
+</ol>
+<h2 is-upgraded>Arquitectura de un Test Plan (Plan de Pruebas)</h2>
+<p>En JMeter, todo sigue una jerarquía de árbol. Vamos a construir un script para atacar una API pública de pruebas: dummyjson.com.</p>
+<p><strong>Paso 1: El Batallón (Thread Group)</strong></p>
+<p>El <em>Thread Group</em> define cuántos usuarios vamos a simular y cómo van a entrar al sistema.</p>
+<ol type="1">
+<li>Haz clic derecho en <strong>Test Plan</strong> &gt; <strong>Add</strong> &gt; <strong>Threads (Users)</strong> &gt; <strong>Thread Group</strong>.</li>
+<li>Configura los parámetros clave: <ul>
+<li><strong>Number of Threads (users): </strong><code>10</code> (Vamos a simular 10 usuarios concurrentes).</li>
+<li><strong>Ramp-up period (seconds): </strong><code>5</code> (JMeter tardará 5 segundos en meter a los 10 usuarios. Es decir, entrarán 2 usuarios por segundo. Esto evita un ataque DDOS instantáneo).</li>
+<li><strong>Loop Count: </strong><code>2</code> (Cada usuario hará el flujo 2 veces. Total de peticiones: 10 x 2 = 20).</li>
+</ul>
+</li>
+</ol>
+<p><strong>Paso 2: El Soldado (HTTP Request Sampler)</strong></p>
+<p>El <em>Sampler</em> es la acción que hace el usuario (la petición web).</p>
+<ol type="1">
+<li>Haz clic derecho en tu <strong>Thread Group</strong> &gt; <strong>Add</strong> &gt; <strong>Sampler</strong> &gt; <strong>HTTP Request</strong>.</li>
+<li>Llama a este paso: <code>GET Products</code>.</li>
+<li>Configúralo así: <ul>
+<li><strong>Protocol: </strong><code>https</code></li>
+<li><strong>Server Name or IP: </strong><code>dummyjson.com</code></li>
+<li><strong>HTTP Request Method: </strong><code>GET</code></li>
+<li><strong>Path: </strong><code>/products</code></li>
+</ul>
+</li>
+</ol>
+<p><strong>Paso 3: La Pausa Humana (Timers y Think Time)</strong></p>
+<p>Un error de novatos es crear peticiones en bucle sin pausas. Las computadoras pueden hacer 1000 requests por segundo, los humanos no. Los humanos leen la pantalla antes de hacer clic. A esto se le llama <strong>Think Time</strong>. Si no pones pausas, estás haciendo un ataque de Denegación de Servicio (DDOS), no una prueba de carga realista.</p>
+<ol type="1">
+<li>Haz clic derecho en <strong>GET Products</strong> &gt; <strong>Add</strong> &gt; <strong>Timer</strong> &gt; <strong>Constant Timer</strong> (o <em>Gaussian Random Timer</em> para mayor realismo).</li>
+<li>Configura el <strong>Thread Delay: </strong><code>2000</code> (milisegundos). <ul>
+<li><em>Efecto:</em> Cada usuario esperará 2 segundos exactos antes de ejecutar la petición (o entre peticiones si hubiera más de una).</li>
+</ul>
+</li>
+</ol>
+<p><strong>Paso 4: El Control de Calidad (Assertions)</strong></p>
+<p>Si tu servidor está colapsando, podría empezar a devolver mensajes de error rápidamente. Un error 500 (Internal Server Error) devuelto en 10ms es un fallo, no un éxito de rendimiento. JMeter, por defecto, marca en verde todo lo que sea <code>2xx</code> o <code>3xx</code>. Debemos ser más estrictos.</p>
+<ol type="1">
+<li>Haz clic derecho en <strong>GET Products</strong> &gt; <strong>Add</strong> &gt; <strong>Assertions</strong> &gt; <strong>Response Assertion</strong>.</li>
+<li>Configúralo: <ul>
+<li><strong>Field to Test: </strong><code>Response Code</code></li>
+<li><strong>Pattern Matching Rules: </strong><code>Equals</code></li>
+<li><strong>Patterns to Test:</strong> Clic en &#34;Add&#34; y escribe 200.</li>
+</ul>
+</li>
+<li><em>Opcional pero recomendado:</em> Agrega otra aserción de tipo <code>JSON Assertion</code> para verificar que el nodo <code>$.products</code> exista en la respuesta. Así validamos que la API no solo no falló, sino que trajo la data correcta bajo presión.</li>
+</ol>
+<p><strong>Paso 5: Los Monitores (Listeners)</strong></p>
+<p>Los Listeners nos permiten ver los resultados de la prueba.</p>
+<ol type="1">
+<li>Haz clic derecho en <strong>Thread Group</strong> &gt; <strong>Add</strong> &gt; <strong>Listener</strong> &gt; <strong>View Results Tree</strong> (Ver Árbol de Resultados).</li>
+<li>Haz clic derecho en <strong>Thread Group</strong> &gt; <strong>Add</strong> &gt; <strong>Listener</strong> &gt; <strong>Summary Report</strong> (Reporte Resumido).</li>
+</ol>
+<p><strong>Nota:</strong> Los Listeners consumen <strong>mucha</strong> memoria RAM porque guardan la respuesta de cada petición. <strong>SOLO</strong> deben usarse en modo GUI para depurar el script con 1 o 2 usuarios. ¡NUNCA los dejes activos cuando corras una prueba real de miles de usuarios!</p>
+<h2 is-upgraded>Ejecución (Prueba de Humo Local)</h2>
+<p>Guarda tu Test Plan (ej: <code>API_LoadTest.jmx</code>).</p>
+<ol type="1">
+<li>Haz clic en el botón verde de <strong>Play</strong> en la barra superior.</li>
+<li>Ve al Listener <strong>View Results Tree</strong>.</li>
+<li>Verás aparecer 20 peticiones (10 usuarios x 2 loops). Todas deberían estar en verde.</li>
+<li>Si haces clic en una de ellas, podrás inspeccionar el <strong>Request</strong> (lo que enviaste) y el <strong>Response data</strong> (el JSON gigante de productos que devolvió el servidor).</li>
+<li>Ve al <strong>Summary Report</strong>. Aquí verás la magia de la estadística: Mínimo, Máximo, Promedio y Throughput (Peticiones por segundo).</li>
+</ol>
+<p>Diseñar un Test Plan es un ejercicio de modelado matemático. Si tu sistema real tiene usuarios que navegan un 80% del tiempo y compran un 20%, tu script de JMeter debe reflejar esa misma proporción usando Controladores Lógicos (If Controllers, Throughput Controllers).</p>
+<p>Una prueba de carga con el perfil de tráfico equivocado te dará resultados inútiles y falsas sensaciones de seguridad.</p>
+<p class="image-container"><img alt="img-10" src="img/fb1f54ced11d6f66.png"></p>
+<aside class="special"><p> ¿Lograste configurar tu Thread Group y ver los resultados en verde en el Árbol de Resultados? </p>
+<p>Si tu script funciona perfectamente en la interfaz gráfica, prepárate. En la siguiente sección, vamos a abandonar la interfaz visual, inyectaremos datos dinámicos desde archivos CSV y aprenderemos a generar Dashboards HTML ejecutivos desde la consola, como lo hacen los profesionales en entornos CI/CD.</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Backend - JMeter Avanzado" duration="0">
+        <p>¡Subimos de nivel! Nuestro script de la sección anterior funciona, pero tiene dos problemas graves que lo descalifican como una prueba de rendimiento profesional:</p>
+<ol type="1">
+<li><strong>Es predecible:</strong> Cien usuarios pidiendo exactamente la misma URL (/products) causarán que el servidor guarde la respuesta en la memoria caché. Estaremos probando la memoria caché del servidor, no su capacidad real de procesamiento ni la Base de Datos.</li>
+<li><strong>Es local y gráfico:</strong> Si intentas lanzar 5,000 usuarios desde la interfaz gráfica (GUI) de JMeter, tu computadora explotará antes que el servidor.</li>
+</ol>
+<p>Ahora vamos a convertir nuestro script en un arma de asedio dinámica y aprenderemos a ejecutarla como un verdadero DevOps.</p>
+<p><strong>&#34;Nunca pruebes la caché de un servidor pensando que estás probando su base de datos.&#34;</strong></p>
+<h2 is-upgraded>Teoría y Práctica: Data Driven Testing (CSV Data Set Config)</h2>
+<p>Para estresar un servidor de verdad, cada usuario virtual (Thread) debe hacer algo diferente. Vamos a simular un escenario de Login masivo donde cada usuario usa credenciales distintas.</p>
+<p><strong>Paso 1: El Archivo de Datos</strong></p>
+<p>Crea un archivo de texto simple llamado <code>usuarios.csv</code> en la misma carpeta donde guardaste tu script <code>.jmx</code>.</p>
+<p>Añade datos falsos separados por comas (sin espacios extra):</p>
+<pre><code>emilys,emilyspass
+michaelw,michaelwpass
+sophiab,sophiabpass
+</code></pre>
+<p><em>(Nota: dummyjson.com tiene estos usuarios de prueba preconfigurados en su API).</em></p>
+<p><strong>Paso 2: Inyectar el CSV en JMeter</strong></p>
+<ol type="1">
+<li>Abre tu <code>API_LoadTest.jmx</code> en la GUI de JMeter.</li>
+<li>Haz clic derecho en tu <strong>Thread Group</strong> &gt; <strong>Add</strong> &gt; <strong>Config Element</strong> &gt; <strong>CSV Data Set Config</strong>.</li>
+<li>Arrastra este elemento para que quede arriba del todo (es buena práctica que las configuraciones sean lo primero que lea el Thread Group).</li>
+<li>Configúralo: <ul>
+<li><strong>Filename: </strong><code>usuarios.csv</code> (Si está en la misma carpeta, basta con el nombre).</li>
+<li><strong>Variable Names (comma-delimited): </strong><code>USER,PASS</code> (Esto creará dos variables en JMeter).</li>
+<li><strong>Ignore first line: </strong><code>False</code> (Porque no le pusimos cabeceras a nuestro CSV).</li>
+<li><strong>Recycle on EOF: </strong><code>True</code> (Si hay más Threads que filas en el CSV, volverá a empezar desde la primera línea).</li>
+</ul>
+</li>
+</ol>
+<p><strong>Paso 3: Usar las Variables (El POST Request)</strong></p>
+<ol type="1">
+<li>Haz clic derecho en el Thread Group &gt; <strong>Add</strong> &gt; <strong>Sampler</strong> &gt; <strong>HTTP Request</strong>.</li>
+<li>Nómbralo <code>POST Login</code>.</li>
+<li>Configúralo: <ul>
+<li><strong>Method: </strong><code>POST</code></li>
+<li><strong>Path: </strong><code>/auth/login</code></li>
+</ul>
+</li>
+<li>En la pestaña <strong>Body Data</strong> (abajo), escribe el JSON inyectando las variables de JMeter usando la sintaxis <code>${VARIABLE}</code>:</li>
+</ol>
+<pre><code language="language-json" class="language-json">{
+  &#34;username&#34;: &#34;${USER}&#34;,
+  &#34;password&#34;: &#34;${PASS}&#34;
+}
+</code></pre>
+<ol type="1">
+<li><strong>IMPORTANTE:</strong> Para hacer un POST con JSON, necesitas un Header. Haz clic derecho en <code>POST Login</code> &gt; <strong>Add</strong> &gt; <strong>Config Element</strong> &gt; <strong>HTTP Header Manager</strong>. Añade una fila: <ul>
+<li>Name: <code>Content-Type</code></li>
+<li>Value: <code>application/json</code></li>
+</ul>
+</li>
+</ol>
+<p><em>Si ejecutas esto ahora (con 3 usuarios), cada petición POST enviará credenciales diferentes. ¡Has vencido a la caché del servidor!</em></p>
+<h2 is-upgraded><strong>El Pecado Capital de JMeter</strong></h2>
+<p>Abre JMeter, mira la parte superior de la pantalla. Verás un texto que probablemente nunca leíste:</p>
+<p><em>&#34;Don&#39;t use GUI mode for load testing !, only for Test creation and Test debugging.&#34;</em></p>
+<p><strong>¿Por qué?</strong></p>
+<p>La interfaz gráfica de JMeter está escrita en Java Swing. Dibujar botones, actualizar tablas y renderizar el &#34;View Results Tree&#34; consume <strong>gigabytes de memoria RAM</strong>.</p>
+<p>Si lanzas 1,000 usuarios desde la GUI, JMeter sufrirá un <code>OutOfMemoryError</code>. La prueba se detendrá, y tú creerás que el servidor falló, cuando en realidad <strong>tu herramienta de pruebas fue la que colapsó</strong>.</p>
+<h2 is-upgraded>Ejecución Profesional: Non-GUI Mode (CLI)</h2>
+<p>Para pruebas reales, JMeter se ejecuta desde la terminal negra y fría. Esto libera el 99% de la RAM para usarla exclusivamente en generar tráfico de red.</p>
+<ol type="1">
+<li>Asegúrate de <strong>deshabilitar (Disable) o eliminar</strong> todos los <em>Listeners</em> (View Results Tree, Summary Report) de tu script. Guárdalo (<code>API_LoadTest.jmx</code>).</li>
+<li>Abre tu terminal y navega hasta la carpeta donde está tu script.</li>
+<li>Ejecuta el <strong>Comando Maestro de JMeter</strong>:</li>
+</ol>
+<pre><code language="language-bash" class="language-bash">jmeter -n -t API_LoadTest.jmx -l resultados.jtl -e -o ./Dashboard_HTML
+</code></pre>
+<p><strong>Anatomía del Comando Maestro:</strong></p>
+<p><code>-n</code> (Non-GUI): Le dice a JMeter que no abra la interfaz gráfica.</p>
+<p><code>-t API_LoadTest.jmx</code>: Especifica el <em>Test Plan</em> a ejecutar.</p>
+<p><code>-l resultados.jtl</code>: JMeter guardará cada petición, su latencia y su código de respuesta en un archivo CSV ligero (.jtl).</p>
+<p><code>-e</code>: Le indica a JMeter que genere un reporte final cuando acabe.</p>
+<p><code>-o ./Dashboard_HTML</code>: La carpeta (DEBE estar vacía o no existir) donde volcará el reporte ejecutivo.</p>
+<p>Verás en tu consola un resumen cada cierto tiempo informando cuántos usuarios están activos y si hay errores.</p>
+<p class="image-container"><img alt="img-11" src="img/3cb02ba78bcdb83.png"></p>
+<h2 is-upgraded>El Reporte Ejecutivo (HTML Dashboard)</h2>
+<p>Nadie en la gerencia (CTOs, Product Managers) va a leer un archivo de texto <code>.jtl</code>. Ellos necesitan gráficos.</p>
+<p>Cuando termine tu prueba por terminal, ve a tu explorador de archivos.</p>
+<ol type="1">
+<li>Abre la nueva carpeta <code>Dashboard_HTML</code>.</li>
+<li>Haz doble clic en el archivo <code>index.html</code>. Se abrirá en tu navegador un dashboard interactivo de nivel profesional.</li>
+</ol>
+<p class="image-container"><img alt="img-12" src="img/c82b3f7063bed202.png"></p>
+<p><strong>Métricas Críticas para Explicar a tu Jefe:</strong></p>
+<p>En el Dashboard, navega por el menú de la izquierda para analizar:</p>
+<ol type="1">
+<li><strong>APDEX (Application Performance Index):</strong> Un estándar internacional de 0 a 1 que mide la satisfacción del usuario. <code>1.0</code> es excelente (todos los requests fueron rápidos). <code>< 0.5</code> es inaceptable.</li>
+<li><strong>Response Times Over Time (Gráfico de Líneas):</strong> Te muestra si el sistema se fue degradando con el tiempo. <em>Diagnóstico SDET:</em> Si la línea del tiempo de respuesta sube constantemente a medida que avanza la prueba, probablemente el servidor tiene un cuello de botella en la Base de Datos o un Memory Leak.</li>
+<li><strong>Active Threads Over Time:</strong> Te muestra cuántos usuarios estaban conectados en cada segundo. Sirve para correlacionar los picos de usuarios con los picos de lentitud.</li>
+<li><strong>Response Time Percentiles:</strong> Verás las famosas líneas de P90, P95 y P99 que discutimos en el Módulo 0.</li>
+</ol>
+<p>Un Tester Junior dice: &#34;JMeter me arrojó 5,000 errores&#34;.</p>
+<p>Un SDET analiza el Dashboard y reporta: &#34;El servidor soportó hasta 250 Threads concurrentes manteniendo un Apdex de 0.9. Sin embargo, al cruzar la barrera de los 300 Threads, la latencia de la base de datos se disparó, el P99 llegó a 4.5 segundos y los requests subsecuentes fallaron por Timeouts. El cuello de botella es la conexión al pool de base de datos.&#34;</p>
+<aside class="special"><p> ¿Lograste generar el Dashboard HTML? Si es así, tienes en tus manos la herramienta de diagnóstico de backend más utilizada del mundo empresarial. </p>
+<p>¡Con esto cerramos las lecciones teóricas y guiadas! Frontend, Mobile y Backend dominados.</p>
+<p>En la próxima sección, nos enfrentaremos a 3 desafíos prácticos (uno por cada área) donde tendrás que demostrar tus habilidades sin instrucciones paso a paso. ¿Listo para el reto final?</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Desafíos Prácticos" duration="0">
+        <p>Hemos pasado a través de las redes del navegador, la memoria de los teléfonos y los hilos de ejecución de los servidores. Tienes las herramientas, conoces la teoría y sabes leer los gráficos.</p>
+<p>En esta sección, te enfrentarás a tres escenarios de crisis sacados directamente del día a día de un Ingeniero de Rendimiento (Performance SDET) en una empresa tecnológica top.</p>
+<p><strong>Regla de Oro:</strong> Intenta resolver los desafíos utilizando las herramientas aprendidas antes de mirar las pistas o soluciones. En el mundo real, no hay un tutorial paso a paso para un servidor caído a las 3:00 AM.</p>
+<h2 is-upgraded>Desafío 1: El Sabotaje de Marketing (Frontend Web)</h2>
+<p><strong>Contexto del Negocio:</strong></p>
+<p>El equipo de Marketing acaba de lanzar una nueva <em>Landing Page</em> promocional. En sus potentes MacBooks en la oficina, la página carga al instante. Sin embargo, los usuarios que entran desde sus teléfonos móviles en la calle se están yendo porque la página se queda en blanco por varios segundos.</p>
+<p><strong>Tu Misión:</strong></p>
+<ol type="1">
+<li>Abre cualquier página web moderna de noticias o e-commerce pesado (ej. <code>cnn.com</code>, <code>amazon.com</code> o una web de prueba que elijas).</li>
+<li>Abre <strong>Chrome DevTools</strong>.</li>
+<li><strong>Descubre el Cuello de Botella:</strong> Debes simular las condiciones de los usuarios móviles y encontrar el archivo exacto (una imagen gigante, un script de terceros, un video) que está arruinando la métrica <strong>LCP (Largest Contentful Paint)</strong>.</li>
+</ol>
+<p><strong>Restricciones y Pistas:</strong></p>
+<ul>
+<li>Debes usar <strong>Network Throttling</strong> (Slow 4G).</li>
+<li>Debes desactivar la caché.</li>
+<li><em>Pista:</em> Ordena la pestaña Network por la columna &#34;Time&#34; o &#34;Size&#34;. También puedes ejecutar un reporte de Lighthouse y buscar en la sección &#34;Diagnostics&#34; cuál es el elemento LCP.</li>
+</ul>
+<h2 is-upgraded>Desafío 2: El Asesino Silencioso (Mobile Android)</h2>
+<p><strong>Contexto del Negocio:</strong></p>
+<p>Nuestra aplicación de Android tiene una calificación de 2.5 estrellas en la Google Play Store. Los comentarios dicen: <em>&#34;La app funciona bien, pero después de usarla un rato viendo productos, el teléfono se calienta y la app se cierra sola sin dar error&#34;</em>. El equipo de desarrollo no puede reproducirlo haciendo un flujo rápido.</p>
+<p><strong>Tu Misión:</strong></p>
+<p>Simular un uso prolongado y demostrar matemáticamente que existe una Fuga de Memoria (Memory Leak).</p>
+<ol type="1">
+<li>Abre el <strong>Android Studio Profiler</strong> y conéctalo a cualquier app de prueba (puedes usar la <code>TallerLoginApp</code> con el leak que inyectamos en una sección anterior).</li>
+<li>Genera estrés de memoria (rota la pantalla 15 veces o navega frenéticamente).</li>
+<li><strong>Captura el culpable:</strong> Toma un Heap Dump y encuentra la clase que no está siendo recolectada por el Garbage Collector (GC).</li>
+</ol>
+<p><strong>Restricciones y Pistas:</strong></p>
+<ul>
+<li>Antes de tomar el Heap Dump, debes forzar al GC (el ícono del bote de basura) al menos 3 veces. Si la memoria no baja, tienes tu evidencia.</li>
+<li><em>Pista:</em> En el Heap Dump, filtra por <code>Activity</code> o marca la casilla &#34;Show Activity/Fragment Leaks&#34;. Debes encontrar el &#34;Path to GC Root&#34; para demostrar qué variable retiene la pantalla.</li>
+</ul>
+<h2 is-upgraded>Desafío 3: El Punto de Quiebre (Backend Stress Testing)</h2>
+<p><strong>Contexto del Negocio:</strong></p>
+<p>Se acerca el &#34;Black Friday&#34; 2026. El CTO te llama y te hace una pregunta directa: <em>&#34;¿Cuántos usuarios simultáneos puede soportar nuestra API de productos antes de que la experiencia sea inaceptable (P90 mayor a 2 segundos) o el servidor colapse?&#34;</em></p>
+<p><strong>Tu Misión:</strong></p>
+<p>Diseñar y ejecutar una <strong>Prueba de Estrés (Stress Test)</strong> progresiva en JMeter.</p>
+<ol type="1">
+<li>Utiliza la API pública de pruebas <code>dummyjson.com/products</code> (o cualquier otra API REST pública permitida).</li>
+<li>Crea un Test Plan que no inyecte todos los usuarios de golpe, sino que vaya subiendo la carga progresivamente.</li>
+<li>Ejecuta la prueba en <strong>Modo Consola (CLI)</strong>, no en la interfaz gráfica.</li>
+<li>Genera el <strong>Dashboard HTML</strong>.</li>
+</ol>
+<p><strong>Restricciones y Pistas:</strong></p>
+<ul>
+<li>Para encontrar el punto de quiebre, en lugar de un <code>Thread Group</code> normal, investiga cómo usar un Stepping Thread Group (con plugins) o simplemente configura el <code>Ramp-up period</code> para que los usuarios entren gradualmente a lo largo de 3 minutos.</li>
+<li><em>Pista de Comando: </em><code>jmeter -n -t stress_test.jmx -l resultados.jtl -e -o ./ReporteFinal</code></li>
+<li>En el reporte, revisa el gráfico <strong>&#34;Response Times Over Time&#34;</strong>. Busca el momento exacto (minuto y segundo) en que la línea de latencia se dispara verticalmente. Ese es tu punto de quiebre.</li>
+</ul>
+<h2 is-upgraded><strong>Soluciones</strong></h2>
+<p><strong>Ver Diagnóstico: Desafío 1 (Frontend Web)</strong></p>
+<p>Al usar &#34;Slow 4G&#34; en la pestaña Network, el gráfico de Cascada (Waterfall) revelará líneas verdes o azules muy largas.</p>
+<p>Si encuentras un archivo <code>.js</code> de 2MB bloqueando el renderizado (Render-blocking), tu diagnóstico como SDET es: &#34;El script de analíticas X está bloqueando el Hilo Principal por 3.5 segundos en redes móviles. Solución propuesta: Añadir los atributos <code>defer</code> o <code>async</code> a la etiqueta script, o reducir el tamaño del bundle&#34;.</p>
+<p><strong>Ver Diagnóstico: Desafío 2 (Mobile Leak)</strong></p>
+<p>En el Heap Dump, al filtrar por la Actividad principal, verás que la columna &#34;Count&#34; dice 15 en lugar de 1.</p>
+<p>Al hacer clic en la instancia, el panel &#34;References&#34; mostrará que una variable estática (como un <code>Companion Object</code> en Kotlin o un Singleton) tiene una referencia fuerte (Strong Reference) al <code>Context</code> de la Actividad.</p>
+<p>Diagnóstico SDET: &#34;Evidencia de Memory Leak adjunta. La variable X está reteniendo el Contexto. Se sugiere usar un <code>WeakReference</code> o limpiar la lista en el método <code>onDestroy()</code>&#34;.</p>
+<p><strong>Ver Diagnóstico: Desafío 3 (Backend Quiebre)</strong></p>
+<p>En el Dashboard HTML generado, navegas a <code>Charts > Response Times > Response Times Over Time</code>.</p>
+<p>Verás que durante el primer minuto (con 50 usuarios) el tiempo de respuesta era plano (~200ms). En el minuto 2:15, cuando los usuarios concurrentes llegaron a 150, la línea subió bruscamente a 3000ms y el APDEX cayó a 0.4.</p>
+<p>Diagnóstico SDET: &#34;El punto de quiebre de la API actual es de 145 usuarios concurrentes. A partir de 150 usuarios, el P90 supera nuestro SLA de 2 segundos. Se requiere escalar los pods del servidor o agregar una capa de caché (Redis)&#34;.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Referencias y Recursos Adicionales" duration="0">
+        <p>Este taller ha sido diseñado para proporcionar una base sólida en la automatización profesional, alineada con las mejores prácticas de la industria actual.</p>
+<h2 is-upgraded>Créditos</h2>
+<p>Autor: Wilmer Arévalo</p>
+<p>Rol: Profesional en Proyectos de Investigación</p>
+<p>Departamento: Centro de Investigación, Facultad de Ingeniería, Universidad de los Andes</p>
+<p>Fecha de creación/actualización: Marzo de 2026</p>
+<h2 is-upgraded>Referencias Oficiales</h2>
+<p>Todo el contenido de este taller está basado en la documentación oficial más reciente:</p>
+<ul>
+<li><a href="https://developer.chrome.com/docs/devtools" target="_blank"><strong>ADB Cheatsheet:</strong> <strong>adbshell.com</strong></a></li>
+<li><a href="https://developer.android.com/studio/profile" target="_blank"><strong>https://developer.android.com/studio/profile</strong></a></li>
+<li><a href="https://jmeter.apache.org/" target="_blank"><strong>https://jmeter.apache.org</strong></a></li>
+</ul>
+<h2 is-upgraded><strong>Soporte y Dudas</strong></h2>
+<p>Si tienen dudas al implementar esto en sus proyectos reales o encuentran problemas con la configuración:</p>
+<ul>
+<li><strong>Canal de Slack/Teams:</strong> Puede hacer las preguntas a través de los medios habilitados y los profesores, tutores y monitores podrán ayudar con la aclaración</li>
+<li><strong>Email de Contacto:</strong> w.arevalo@uniandes.edu.co</li>
+</ul>
+<aside class="special"><p> Repositorio del Taller </p>
+<p>El código final de este ejercicio está disponible en: https://github.com/LensesResearchLab/material-educativo-investigacion/tree/profiling_testing</p>
+</aside>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>
