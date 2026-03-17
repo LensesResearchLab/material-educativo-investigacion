@@ -12,8 +12,18 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
+
+    // EL SABOTAJE: Una lista estática que vivirá para siempre en la RAM
+    companion object {
+        val memoryLeakList = mutableListOf<ComponentActivity>()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // CULPABLE: Cada vez que se crea esta pantalla (ej. al rotar el teléfono),
+        // nos guardamos a nosotros mismos en la lista estática.
+        // Nunca nos borramos de la lista al destruir la pantalla (onDestroy).
+        memoryLeakList.add(this)
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
