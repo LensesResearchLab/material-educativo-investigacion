@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fast-Prototyping con IA · Wilmer · UCEVA 2026</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<!-- QR library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+  :root {
+    --paper: #F5F1EA;
+    --paper-deep: #EBE5DA;
+    --ink: #1A1A1A;
+    --ink-soft: #3A3530;
+    --river: #1B3A5B;
+    --river-deep: #102640;
+    --clay: #C4733B;
+    --clay-soft: #E89B5C;
+    --moss: #4A6B3A;
+    --stone: #8B8478;
+    --stone-soft: #B8B0A3;
+    --whisper: rgba(26, 26, 26, 0.06);
+
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Geist', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Subtle grain overlay so it doesn't look "AI-flat" */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    z-index: 1000;
+    mix-blend-mode: multiply;
+  }
+
+  .deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 7vh 8vw;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .slide.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  /* ---- Navigation ---- */
+  .nav {
+    position: fixed;
+    bottom: 2vh;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 3vw;
+    z-index: 100;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stone);
+    letter-spacing: 0.05em;
+  }
+
+  .nav-arrows {
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .nav-arrow {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--stone-soft);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .nav-arrow:hover {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .nav-counter {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--river);
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  /* ---- Reusable typography ---- */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+    color: var(--ink);
+  }
+
+  .display-italic {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 80;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--stone);
+  }
+
+  .body-text {
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 60ch;
+  }
+
+  .accent { color: var(--clay); }
+  .deep { color: var(--river); }
+  .moss-color { color: var(--moss); }
+  .ink-color { color: var(--ink); }
+
+  /* ---- Slide 1: Title ---- */
+  .s-title {
+    background:
+      radial-gradient(ellipse 60% 80% at 90% 110%, rgba(196, 115, 59, 0.12), transparent),
+      radial-gradient(ellipse 80% 60% at 10% -10%, rgba(27, 58, 91, 0.08), transparent),
+      var(--paper);
+  }
+  .s-title .branding {
+    position: absolute;
+    top: 5vh;
+    left: 8vw;
+    right: 8vw;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .s-title .branding .left {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--stone);
+    line-height: 1.6;
+  }
+  .s-title .branding .left strong {
+    color: var(--river);
+    font-weight: 600;
+  }
+  .s-title .branding .right {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--stone);
+    text-align: right;
+    letter-spacing: 0.1em;
+  }
+  .s-title .main {
+    margin-top: 5vh;
+  }
+  .s-title h1 {
+    font-size: clamp(64px, 12vw, 180px);
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    letter-spacing: -0.04em;
+    line-height: 0.85;
+    color: var(--ink);
+  }
+  .s-title h1 em {
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    color: var(--river);
+  }
+  .s-title .sub {
+    margin-top: 4vh;
+    max-width: 60ch;
+    font-size: 22px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .s-title .speaker {
+    position: absolute;
+    bottom: 8vh;
+    left: 8vw;
+    border-top: 1px solid var(--stone-soft);
+    padding-top: 2vh;
+    width: 50vw;
+    max-width: 600px;
+  }
+  .s-title .speaker .name {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-style: italic;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .s-title .speaker .role {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stone);
+    letter-spacing: 0.1em;
+    margin-top: 6px;
+  }
+
+  /* ---- Slide 2: Servilletas ---- */
+  .s-question {
+    justify-content: center;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .s-question .quote-mark {
+    font-family: var(--font-display);
+    font-size: 200px;
+    line-height: 0.7;
+    color: var(--clay);
+    opacity: 0.4;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    margin-bottom: -20px;
+  }
+  .s-question h2 {
+    font-family: var(--font-display);
+    font-weight: 300;
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    font-size: clamp(48px, 7.5vw, 110px);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    max-width: 22ch;
+  }
+  .s-question h2 em {
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    color: var(--river);
+  }
+
+  /* ---- Slide 3: Promise ---- */
+  .s-promise {
+    justify-content: center;
+  }
+  .s-promise .label-time {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--stone);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 1vh;
+  }
+  .s-promise .big-number {
+    font-family: var(--font-display);
+    font-size: clamp(120px, 22vw, 320px);
+    font-weight: 300;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    line-height: 0.8;
+    color: var(--ink);
+    letter-spacing: -0.05em;
+  }
+  .s-promise .arrow-line {
+    margin-top: 6vh;
+    display: flex;
+    align-items: center;
+    gap: 30px;
+  }
+  .s-promise .step {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 56px);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    color: var(--ink-soft);
+  }
+  .s-promise .step.last {
+    color: var(--clay);
+  }
+  .s-promise .arrow {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 70px);
+    color: var(--stone);
+    font-weight: 300;
+  }
+
+  /* ---- Slide 4: Speaker bio ---- */
+  .s-bio {
+    flex-direction: row;
+    align-items: center;
+    gap: 8vw;
+  }
+  .s-bio .photo {
+    width: 22vw;
+    max-width: 280px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 30%, var(--clay-soft), var(--clay)),
+      var(--clay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--paper);
+    font-family: var(--font-display);
+    font-size: 80px;
+    font-weight: 300;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    box-shadow: 0 30px 60px -20px rgba(196, 115, 59, 0.3);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .s-bio .photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .s-bio .info { flex: 1; }
+  .s-bio h3 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 64px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1;
+    margin-bottom: 3vh;
+    letter-spacing: -0.02em;
+  }
+  .s-bio .one-line {
+    font-size: 22px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin-bottom: 4vh;
+    max-width: 50ch;
+  }
+  .s-bio .creds {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .s-bio .cred {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+  }
+  .s-bio .cred-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--river);
+  }
+  .s-bio .cred:nth-child(2) .cred-dot { background: var(--clay); }
+  .s-bio .cred:nth-child(3) .cred-dot { background: var(--moss); }
+
+  /* ---- Slide 5: DT circle ---- */
+  .s-dt-circle {
+    flex-direction: row;
+    gap: 6vw;
+    align-items: center;
+  }
+  .s-dt-circle .left { flex: 0.8; }
+  .s-dt-circle .right { flex: 1; display: flex; justify-content: center; align-items: center; }
+  .s-dt-circle h3 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 70px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 3vh;
+  }
+  .s-dt-circle h3 em {
+    font-style: italic;
+    color: var(--river);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .s-dt-circle p {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 38ch;
+    margin-bottom: 2vh;
+  }
+  .s-dt-circle .origin {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stone);
+    letter-spacing: 0.1em;
+    margin-top: 2vh;
+  }
+  .dt-circle {
+    width: 32vw;
+    max-width: 480px;
+    height: 32vw;
+    max-height: 480px;
+    position: relative;
+  }
+  .dt-circle svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ---- Slide 6: Phases + AI ---- */
+  .s-phases-ai {
+    justify-content: center;
+  }
+  .s-phases-ai .header {
+    margin-bottom: 6vh;
+  }
+  .s-phases-ai h3 {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 4.5vw, 60px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+  .s-phases-ai h3 em {
+    font-style: italic;
+    color: var(--clay);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .phases-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    background: var(--stone-soft);
+    border: 1px solid var(--stone-soft);
+  }
+  .phase-cell {
+    background: var(--paper);
+    padding: 24px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .phase-cell.header-cell {
+    background: var(--river);
+    color: var(--paper);
+  }
+  .phase-cell .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    opacity: 0.7;
+  }
+  .phase-cell .name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    letter-spacing: -0.01em;
+  }
+  .phase-cell.header-cell .name { color: var(--paper); }
+  .phase-cell .ai-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--clay);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .phase-cell.body-cell {
+    background: var(--paper-deep);
+    min-height: 130px;
+  }
+  .phase-cell .ai-task {
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+  }
+
+  /* ---- Slide 7: Prompt Engineering intro ---- */
+  .s-pe-intro {
+    justify-content: center;
+  }
+  .s-pe-intro .eyebrow-row {
+    margin-bottom: 4vh;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .s-pe-intro .pause {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--clay);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .s-pe-intro .divider-line {
+    width: 60px;
+    height: 1px;
+    background: var(--clay);
+  }
+  .s-pe-intro h2 {
+    font-family: var(--font-display);
+    font-size: clamp(48px, 7vw, 110px);
+    font-weight: 300;
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    max-width: 18ch;
+  }
+  .s-pe-intro h2 em {
+    font-style: italic;
+    color: var(--river);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .s-pe-intro .footnote {
+    margin-top: 6vh;
+    font-size: 18px;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    line-height: 1.5;
+    border-left: 2px solid var(--clay);
+    padding-left: 24px;
+  }
+
+  /* ---- Slide 8: 4 techniques ---- */
+  .s-techniques {
+    padding-top: 6vh;
+    padding-bottom: 6vh;
+    justify-content: flex-start;
+  }
+  .s-techniques h3 {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    margin-bottom: 5vh;
+    letter-spacing: -0.02em;
+  }
+  .s-techniques h3 em {
+    font-style: italic;
+    color: var(--clay);
+  }
+  .techniques-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  .tech-card {
+    border-left: 3px solid var(--river);
+    padding: 4px 0 4px 24px;
+  }
+  .tech-card:nth-child(2) { border-left-color: var(--clay); }
+  .tech-card:nth-child(3) { border-left-color: var(--moss); }
+  .tech-card:nth-child(4) { border-left-color: var(--ink); }
+  .tech-card .num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--stone);
+    margin-bottom: 8px;
+  }
+  .tech-card .name {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    margin-bottom: 6px;
+    line-height: 1.1;
+  }
+  .tech-card .desc {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .tech-card .example {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--river);
+    background: var(--paper-deep);
+    padding: 8px 12px;
+    border-radius: 4px;
+    line-height: 1.5;
+  }
+
+  /* ---- Slide 9: Plantilla universal ---- */
+  .s-template {
+    justify-content: center;
+  }
+  .s-template .header {
+    margin-bottom: 5vh;
+  }
+  .s-template h3 {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 4.5vw, 56px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    margin-bottom: 1vh;
+    letter-spacing: -0.02em;
+  }
+  .s-template h3 em {
+    font-style: italic;
+    color: var(--river);
+  }
+  .s-template .subtitle {
+    font-size: 17px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .template-block {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 36px 44px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 16px;
+    line-height: 1.9;
+    box-shadow: 0 24px 48px -16px rgba(0,0,0,0.25);
+    max-width: 800px;
+  }
+  .template-block .tag {
+    color: var(--clay-soft);
+    font-weight: 700;
+  }
+  .template-block .placeholder {
+    color: var(--stone-soft);
+    font-style: italic;
+  }
+
+  /* ---- Slide 10: Anti-patterns ---- */
+  .s-antipatterns {
+    justify-content: center;
+  }
+  .s-antipatterns h3 {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 4.5vw, 56px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    margin-bottom: 5vh;
+    letter-spacing: -0.02em;
+  }
+  .s-antipatterns h3 em {
+    font-style: italic;
+    color: var(--clay);
+  }
+  .antipatterns-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .antipattern {
+    padding: 28px;
+    border: 1px solid var(--stone-soft);
+    background: var(--paper-deep);
+    position: relative;
+  }
+  .antipattern.bad::before {
+    content: '✗';
+    position: absolute;
+    top: -16px;
+    left: 24px;
+    background: var(--clay);
+    color: var(--paper);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .antipattern.good::before {
+    content: '✓';
+    position: absolute;
+    top: -16px;
+    left: 24px;
+    background: var(--moss);
+    color: var(--paper);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .antipattern .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--stone);
+    margin-bottom: 14px;
+  }
+  .antipattern .quote {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin-bottom: 14px;
+    background: var(--paper);
+    padding: 14px;
+    border-radius: 3px;
+  }
+  .antipattern .result {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  /* ---- Slide 11: Reto TulúAlerta ---- */
+  .s-reto {
+    flex-direction: row;
+    gap: 5vw;
+    align-items: center;
+  }
+  .s-reto .left { flex: 1; }
+  .s-reto .right { flex: 1; }
+  .s-reto .badge {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--clay);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 3vh;
+  }
+  .s-reto h3 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5.5vw, 84px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    margin-bottom: 4vh;
+  }
+  .s-reto h3 em {
+    font-style: italic;
+    color: var(--river);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .s-reto p {
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 42ch;
+    margin-bottom: 2vh;
+  }
+  .river-illustration {
+    width: 100%;
+    aspect-ratio: 4/5;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -24px rgba(27, 58, 91, 0.4);
+    background: linear-gradient(180deg,
+      #8FA7B8 0%,
+      #6B8AA0 25%,
+      #4A6B83 55%,
+      #2A4A60 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .river-illustration img {
+    max-width: 90%;
+    max-height: 80%;
+    object-fit: contain;
+  }
+  .river-illustration::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'><path d='M 0 200 Q 80 180 160 220 T 320 240 T 400 220' stroke='%23ffffff' stroke-width='2' fill='none' opacity='0.3'/><path d='M 0 280 Q 100 260 200 290 T 400 280' stroke='%23ffffff' stroke-width='1.5' fill='none' opacity='0.2'/><path d='M 0 360 Q 60 340 140 370 T 280 380 T 400 360' stroke='%23ffffff' stroke-width='1' fill='none' opacity='0.25'/></svg>");
+    background-size: cover;
+  }
+  .river-illustration .label {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    right: 24px;
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-top: 1px solid rgba(245, 241, 234, 0.3);
+    padding-top: 10px;
+    line-height: 1.5;
+  }
+  .river-illustration .label-note {
+    font-family: var(--font-display);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    font-size: 16px;
+    margin-top: 6px;
+    color: rgba(245, 241, 234, 0.9);
+  }
+
+  /* ---- Phase intro slides (12, 15, 18, 21, 22) ---- */
+  .s-phase-intro {
+    justify-content: center;
+  }
+  .s-phase-intro .top {
+    display: flex;
+    align-items: baseline;
+    gap: 32px;
+    margin-bottom: 5vh;
+  }
+  .s-phase-intro .phase-num {
+    font-family: var(--font-display);
+    font-size: clamp(80px, 12vw, 180px);
+    font-weight: 200;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    line-height: 0.8;
+    color: var(--clay);
+    letter-spacing: -0.05em;
+  }
+  .s-phase-intro h2 {
+    font-family: var(--font-display);
+    font-size: clamp(48px, 7vw, 100px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+  .s-phase-intro .definition {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(24px, 2.8vw, 36px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    line-height: 1.35;
+    color: var(--river);
+    max-width: 32ch;
+    margin-bottom: 5vh;
+    border-left: 2px solid var(--clay);
+    padding-left: 24px;
+  }
+  .s-phase-intro .tools {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-bottom: 4vh;
+  }
+  .s-phase-intro .tool {
+    flex: 1;
+    min-width: 180px;
+    max-width: 280px;
+  }
+  .s-phase-intro .tool .tool-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--stone);
+    letter-spacing: 0.18em;
+    margin-bottom: 8px;
+  }
+  .s-phase-intro .tool .tool-name {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    line-height: 1.15;
+  }
+  .s-phase-intro .tool .tool-desc {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .s-phase-intro .ia-line {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--paper-deep);
+    border-radius: 4px;
+    max-width: 700px;
+  }
+  .s-phase-intro .ia-line .ia-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--clay);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .s-phase-intro .ia-line .ia-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .pe-footer {
+    position: absolute;
+    bottom: 4vh;
+    right: 8vw;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--stone);
+    letter-spacing: 0.12em;
+  }
+  .pe-footer .dot {
+    color: var(--clay);
+    margin: 0 8px;
+  }
+
+  /* ---- Live demo slide ---- */
+  .s-live {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .s-live .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--clay);
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 4vh;
+  }
+  .s-live .badge .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--paper);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.5); }
+  }
+  .s-live h2 {
+    font-family: var(--font-display);
+    font-size: clamp(56px, 8vw, 120px);
+    font-weight: 300;
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    font-style: italic;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin-bottom: 4vh;
+    max-width: 18ch;
+  }
+  .s-live h2 em {
+    font-style: normal;
+    color: var(--river);
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+  }
+  .s-live .arrow-down {
+    font-family: var(--font-display);
+    font-size: 50px;
+    color: var(--clay);
+    margin-top: 2vh;
+    animation: bounce 2s ease-in-out infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(8px); }
+  }
+
+  /* ---- QR slides ---- */
+  .s-qr {
+    flex-direction: row;
+    gap: 6vw;
+    align-items: center;
+  }
+  .s-qr .left { flex: 1; }
+  .s-qr .right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .s-qr .phase-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--clay);
+    text-transform: uppercase;
+    margin-bottom: 2vh;
+  }
+  .s-qr h2 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5.5vw, 76px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin-bottom: 4vh;
+  }
+  .s-qr h2 em {
+    font-style: italic;
+    color: var(--river);
+  }
+  .s-qr .instr {
+    font-size: 19px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    margin-bottom: 3vh;
+    max-width: 38ch;
+  }
+  .s-qr .timer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    color: var(--clay);
+    text-transform: uppercase;
+  }
+  .s-qr .timer-icon {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--clay);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 2s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .qr-frame {
+    width: 320px;
+    height: 320px;
+    background: var(--paper);
+    border: 1px solid var(--stone-soft);
+    padding: 20px;
+    box-shadow: 0 24px 48px -16px rgba(0,0,0,0.15);
+    position: relative;
+  }
+  .qr-frame > div { width: 100%; height: 100%; }
+  .qr-frame canvas, .qr-frame img { width: 100% !important; height: 100% !important; }
+  .qr-frame .placeholder {
+    width: 100%;
+    height: 100%;
+    background:
+      repeating-linear-gradient(45deg, var(--paper-deep), var(--paper-deep) 10px, var(--paper) 10px, var(--paper) 20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stone);
+    line-height: 1.6;
+    letter-spacing: 0.1em;
+    padding: 24px;
+  }
+  .qr-caption {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stone);
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+
+  /* ---- HMW Big Slide ---- */
+  .s-hmw {
+    justify-content: center;
+    background:
+      radial-gradient(ellipse 80% 60% at 100% 0%, rgba(196, 115, 59, 0.06), transparent),
+      radial-gradient(ellipse 60% 80% at 0% 100%, rgba(27, 58, 91, 0.08), transparent),
+      var(--paper);
+  }
+  .s-hmw .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--clay);
+    text-transform: uppercase;
+    margin-bottom: 4vh;
+  }
+  .s-hmw .question {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(44px, 6.5vw, 92px);
+    font-weight: 300;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    max-width: 22ch;
+  }
+  .s-hmw .question .openq {
+    color: var(--clay);
+    font-style: normal;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+  }
+  .s-hmw .footer {
+    margin-top: 6vh;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--stone);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* ---- Brief slide ---- */
+  .s-brief {
+    justify-content: center;
+  }
+  .s-brief h3 {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 4.2vw, 52px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1.05;
+    margin-bottom: 1.5vh;
+    letter-spacing: -0.02em;
+  }
+  .s-brief h3 em {
+    font-style: italic;
+    color: var(--clay);
+  }
+  .s-brief .subtitle {
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin-bottom: 5vh;
+    max-width: 60ch;
+    line-height: 1.5;
+  }
+  .brief-layout {
+    display: grid;
+    grid-template-columns: 1fr 0.4fr 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+  .brief-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .brief-card {
+    background: var(--paper-deep);
+    border-left: 3px solid var(--river);
+    padding: 14px 18px;
+  }
+  .brief-card .label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: var(--stone);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .brief-card .content {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .brief-card .content em {
+    font-style: italic;
+    color: var(--river);
+  }
+  .brief-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+  .brief-arrow svg {
+    width: 100%;
+    height: auto;
+  }
+  .brief-output {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 32px 28px;
+    text-align: center;
+    box-shadow: 0 30px 60px -20px rgba(26, 26, 26, 0.4);
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .brief-output .small {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--clay-soft);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .brief-output .name {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    margin-bottom: 16px;
+    line-height: 1;
+  }
+  .brief-output .desc {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--stone-soft);
+    max-width: 28ch;
+  }
+
+  /* ---- Vibe Coding Slide ---- */
+  .s-vibe {
+    justify-content: center;
+  }
+  .s-vibe .header {
+    margin-bottom: 5vh;
+  }
+  .s-vibe h3 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 64px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
+  .s-vibe h3 em {
+    font-style: italic;
+    color: var(--clay);
+  }
+  .s-vibe .subtitle {
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin-top: 1vh;
+    max-width: 70ch;
+    line-height: 1.55;
+  }
+  .vibe-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .vibe-col {
+    padding: 28px 32px;
+    border-radius: 4px;
+    min-height: 280px;
+  }
+  .vibe-col.ok {
+    background: rgba(74, 107, 58, 0.08);
+    border: 1px solid rgba(74, 107, 58, 0.2);
+  }
+  .vibe-col.danger {
+    background: rgba(196, 115, 59, 0.08);
+    border: 1px solid rgba(196, 115, 59, 0.25);
+  }
+  .vibe-col .col-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .vibe-col.ok .col-tag { color: var(--moss); }
+  .vibe-col.danger .col-tag { color: var(--clay); }
+  .vibe-col .col-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1.15;
+    margin-bottom: 18px;
+  }
+  .vibe-col ul {
+    list-style: none;
+    padding: 0;
+  }
+  .vibe-col li {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 8px 0;
+    padding-left: 22px;
+    position: relative;
+  }
+  .vibe-col li::before {
+    position: absolute;
+    left: 0;
+    top: 8px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+  .vibe-col.ok li::before {
+    content: '+';
+    color: var(--moss);
+    font-weight: 700;
+  }
+  .vibe-col.danger li::before {
+    content: '−';
+    color: var(--clay);
+    font-weight: 700;
+  }
+  .vibe-quote {
+    margin-top: 4vh;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(20px, 2.4vw, 28px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    color: var(--river);
+    text-align: center;
+    line-height: 1.4;
+    max-width: 40ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ---- Three principles ---- */
+  .s-principles {
+    justify-content: center;
+  }
+  .s-principles h3 {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 4.5vw, 56px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    margin-bottom: 5vh;
+    letter-spacing: -0.025em;
+    line-height: 1;
+  }
+  .s-principles h3 em {
+    font-style: italic;
+    color: var(--clay);
+  }
+  .principles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+  .principle {
+    padding-top: 4px;
+  }
+  .principle .num {
+    font-family: var(--font-display);
+    font-size: 80px;
+    font-weight: 200;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    line-height: 0.8;
+    color: var(--clay);
+    margin-bottom: 18px;
+  }
+  .principle .title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1.15;
+    margin-bottom: 14px;
+    color: var(--ink);
+  }
+  .principle .body {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  /* ---- AI didn't ---- */
+  .s-not-did {
+    justify-content: center;
+  }
+  .s-not-did h3 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5.5vw, 76px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin-bottom: 4vh;
+  }
+  .s-not-did h3 em {
+    font-style: italic;
+    color: var(--clay);
+  }
+  .s-not-did h3 .strike {
+    text-decoration: line-through;
+    text-decoration-thickness: 4px;
+    text-decoration-color: var(--clay);
+    color: var(--stone);
+  }
+  .not-did-list {
+    columns: 2;
+    column-gap: 60px;
+    max-width: 1100px;
+  }
+  .not-did-list li {
+    list-style: none;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink);
+    padding: 12px 0;
+    padding-left: 28px;
+    position: relative;
+    break-inside: avoid;
+  }
+  .not-did-list li::before {
+    content: '×';
+    position: absolute;
+    left: 0;
+    top: 11px;
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--clay);
+    line-height: 1;
+  }
+
+  /* ---- Three messages final ---- */
+  .s-three-msgs {
+    justify-content: center;
+  }
+  .s-three-msgs .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--clay);
+    text-transform: uppercase;
+    margin-bottom: 4vh;
+  }
+  .three-msgs {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  .msg {
+    display: flex;
+    align-items: flex-start;
+    gap: 32px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--stone-soft);
+  }
+  .msg:last-child { border-bottom: none; padding-bottom: 0; }
+  .msg .num {
+    font-family: var(--font-display);
+    font-size: 80px;
+    font-weight: 200;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    line-height: 0.85;
+    color: var(--clay);
+    flex-shrink: 0;
+  }
+  .msg .text {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(24px, 3vw, 38px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    line-height: 1.2;
+    color: var(--ink);
+    padding-top: 8px;
+  }
+  .msg .text em {
+    font-style: normal;
+    color: var(--river);
+    font-weight: 500;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+  }
+
+  /* ---- Recursos ---- */
+  .s-recursos {
+    flex-direction: row;
+    gap: 6vw;
+    align-items: center;
+  }
+  .s-recursos .left { flex: 1; }
+  .s-recursos .right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .s-recursos h3 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 72px);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 50;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    margin-bottom: 3vh;
+  }
+  .s-recursos h3 em {
+    font-style: italic;
+    color: var(--river);
+  }
+  .s-recursos ul {
+    list-style: none;
+  }
+  .s-recursos li {
+    padding: 8px 0;
+    padding-left: 24px;
+    position: relative;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .s-recursos li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--clay);
+    font-weight: 700;
+  }
+  .s-recursos .invite {
+    margin-top: 4vh;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 22px;
+    color: var(--river);
+    border-left: 2px solid var(--clay);
+    padding-left: 20px;
+    line-height: 1.4;
+  }
+
+  /* ---- Gracias ---- */
+  .s-gracias {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 100%, rgba(196, 115, 59, 0.1), transparent),
+      var(--paper);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .s-gracias .word {
+    font-family: var(--font-display);
+    font-size: clamp(120px, 22vw, 320px);
+    font-weight: 200;
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    line-height: 0.85;
+    color: var(--ink);
+    letter-spacing: -0.04em;
+    margin-bottom: 4vh;
+  }
+  .s-gracias .word em {
+    color: var(--clay);
+    font-style: normal;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+  }
+  .s-gracias .sub {
+    font-family: var(--font-display);
+    font-size: 26px;
+    color: var(--ink-soft);
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    margin-bottom: 6vh;
+  }
+  .s-gracias .contact {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--stone);
+    letter-spacing: 0.1em;
+  }
+  .s-gracias .contact strong {
+    color: var(--river);
+    font-weight: 600;
+  }
+
+  /* ---- Print styles ---- */
+  @media print {
+    @page {
+      size: 1280px 720px;
+      margin: 0;
+    }
+    html, body { overflow: visible; height: auto; }
+    body::before { display: none; }
+    .nav, .progress { display: none !important; }
+    .deck { width: 1280px; height: auto; }
+    .slide {
+      display: flex !important;
+      opacity: 1 !important;
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      page-break-after: always;
+      break-after: page;
+    }
+    .slide:last-child { page-break-after: auto; }
+  }
+
+  /* Helper for any small label */
+  .footer-techniques {
+    position: absolute;
+    bottom: 4vh;
+    left: 8vw;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--stone);
+    letter-spacing: 0.12em;
+  }
+  .footer-techniques .lbl { color: var(--clay); }
+
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     CONFIGURATION — Edita las URLs de los formularios el martes
+     ════════════════════════════════════════════════════════════ -->
+<script>
+  const CONFIG = {
+    forms: {
+      // Reemplaza estas URLs con las URLs reales de tus formularios de Fillout
+      empatizar: 'https://forms.fillout.com/PEGAR-URL-EMPATIZAR',
+      definir:   'https://forms.fillout.com/PEGAR-URL-DEFINIR',
+      idear:     'https://forms.fillout.com/PEGAR-URL-IDEAR',
+      evaluar:   'https://forms.fillout.com/PEGAR-URL-EVALUAR',
+    },
+    recursos: 'https://github.com/LensesResearchLab/material-educativo-investigacion/tree/fast-prototyping-uceva',
+    speaker: {
+      name: 'Wilmer Arévalo',
+      role: 'Universidad de los Andes · Lenses Research Lab',
+    },
+    hmw: '¿Cómo podríamos lograr que un reporte ciudadano sobre el río se sienta atendido en menos de 24 horas, incluso sin smartphone moderno?',
+  };
+</script>
+
+<div class="progress" id="progress"></div>
+
+<div class="deck" id="deck">
+
+<!-- ═══════════════════ SLIDE 1: Título ═══════════════════ -->
+<section class="slide s-title active" data-slide="1">
+  <div class="branding">
+    <div class="left">
+      <strong>V Semana Internacional Ucevista 2026</strong><br>
+      Horizontes Nórdicos · Ciencia e Interculturalidad para la Paz y la Sostenibilidad
+    </div>
+    <div class="right">
+      MIÉRCOLES 29 · ABRIL · 2026<br>
+      10:00 AM · LAB. REDES TELEMÁTICAS · UCEVA
+    </div>
+  </div>
+
+  <div class="main">
+    <h1>Fast-Prototyping<br><em>con IA</em></h1>
+    <p class="sub">
+      De la idea al prototipo en ~60 minutos. Buenas prácticas para generar productos en pocos pasos, usando Design Thinking, Prompt Engineering y un puñado de herramientas que cambiaron las reglas del juego.
+    </p>
+  </div>
+
+  <div class="speaker">
+    <div class="name">Wilmer Arévalo</div>
+    <div class="role">Universidad de los Andes · Lenses Research Lab</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 2: Pregunta servilleta ═══════════════════ -->
+<section class="slide s-question" data-slide="2">
+  <div class="quote-mark">"</div>
+  <h2>¿Cuántas ideas mueren <em>en una servilleta?</em></h2>
+</section>
+
+<!-- ═══════════════════ SLIDE 3: Promesa ═══════════════════ -->
+<section class="slide s-promise" data-slide="3">
+  <div class="label-time">La promesa de hoy</div>
+  <div class="big-number">~60<sup style="font-size: 0.3em; vertical-align: top; color: var(--clay);">min</sup></div>
+  <div class="arrow-line">
+    <span class="step">una idea</span>
+    <span class="arrow">→</span>
+    <span class="step">un prototipo</span>
+    <span class="arrow">→</span>
+    <span class="step last">en su celular</span>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 4: Quién soy ═══════════════════ -->
+<section class="slide s-bio" data-slide="4">
+  <div class="photo"><img src="profile_picture.png" alt="Wilmer"></div>
+  <div class="info">
+    <h3>Hola, soy Wilmer.</h3>
+    <p class="one-line">
+      Ingeniero de Sistemas y Computación en la Universidad de los Andes, profesional de proyectos de investigación en la Facultad de Ingeniería.
+    </p>
+    <div class="creds">
+      <div class="cred"><span class="cred-dot"></span>Investigación · Lenses Research Lab</div>
+      <div class="cred"><span class="cred-dot"></span>Software · Pre & Est. Posgrado</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 5: DT en círculo ═══════════════════ -->
+<section class="slide s-dt-circle" data-slide="5">
+  <div class="left">
+    <h3>Design <em>Thinking</em></h3>
+    <p>
+      Cinco pasos para no enamorarse de una solución antes de entender el problema.
+    </p>
+    <p>
+      Lo crearon entre Stanford y la firma IDEO en los 90. Su descubrimiento incómodo: cuando enfrentamos un problema, saltamos a la solución que ya conocemos. Por eso tantos productos no se usan.
+    </p>
+    <div class="origin">D.SCHOOL · STANFORD · IDEO · 1990s</div>
+  </div>
+  <div class="right">
+    <div class="dt-circle">
+      <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+        <!-- circle outline -->
+        <circle cx="240" cy="240" r="180" fill="none" stroke="#1B3A5B" stroke-width="1" opacity="0.2" stroke-dasharray="4 6"/>
+
+        <!-- 5 phase nodes -->
+        <g font-family="Fraunces, serif" font-style="italic" font-weight="500">
+          <!-- 1. Empatizar (top) -->
+          <g>
+            <circle cx="240" cy="60" r="44" fill="#1B3A5B"/>
+            <text x="240" y="68" font-size="14" fill="#F5F1EA" text-anchor="middle">Empatizar</text>
+            <text x="240" y="38" font-size="10" font-family="JetBrains Mono" font-style="normal" fill="#8B8478" text-anchor="middle" letter-spacing="2">01</text>
+          </g>
+          <!-- 2. Definir (top right) -->
+          <g>
+            <circle cx="411" cy="172" r="44" fill="#C4733B"/>
+            <text x="411" y="180" font-size="14" fill="#F5F1EA" text-anchor="middle">Definir</text>
+            <text x="411" y="240" font-size="10" font-family="JetBrains Mono" font-style="normal" fill="#8B8478" text-anchor="middle" letter-spacing="2">02</text>
+          </g>
+          <!-- 3. Idear (bottom right) -->
+          <g>
+            <circle cx="346" cy="368" r="44" fill="#4A6B3A"/>
+            <text x="346" y="376" font-size="14" fill="#F5F1EA" text-anchor="middle">Idear</text>
+            <text x="346" y="436" font-size="10" font-family="JetBrains Mono" font-style="normal" fill="#8B8478" text-anchor="middle" letter-spacing="2">03</text>
+          </g>
+          <!-- 4. Prototipar (bottom left) -->
+          <g>
+            <circle cx="134" cy="368" r="46" fill="#1A1A1A"/>
+            <text x="134" y="376" font-size="14" fill="#F5F1EA" text-anchor="middle">Prototipar</text>
+            <text x="134" y="436" font-size="10" font-family="JetBrains Mono" font-style="normal" fill="#8B8478" text-anchor="middle" letter-spacing="2">04</text>
+          </g>
+          <!-- 5. Evaluar (top left) -->
+          <g>
+            <circle cx="69" cy="172" r="44" fill="#1B3A5B" opacity="0.7"/>
+            <text x="69" y="180" font-size="14" fill="#F5F1EA" text-anchor="middle">Evaluar</text>
+            <text x="69" y="240" font-size="10" font-family="JetBrains Mono" font-style="normal" fill="#8B8478" text-anchor="middle" letter-spacing="2">05</text>
+          </g>
+        </g>
+
+        <!-- arrows between nodes -->
+        <g stroke="#8B8478" stroke-width="1.2" fill="none" opacity="0.5">
+          <path d="M 285 78 Q 360 100 388 132" marker-end="url(#arrowhead)"/>
+          <path d="M 421 218 Q 415 308 380 348" marker-end="url(#arrowhead)"/>
+          <path d="M 300 386 Q 240 410 180 386" marker-end="url(#arrowhead)"/>
+          <path d="M 100 348 Q 65 308 75 218" marker-end="url(#arrowhead)"/>
+          <path d="M 92 132 Q 120 100 195 78" marker-end="url(#arrowhead)"/>
+        </g>
+        <defs>
+          <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <polygon points="0 0, 6 3, 0 6" fill="#8B8478"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 6: 5 fases + asistente IA ═══════════════════ -->
+<section class="slide s-phases-ai" data-slide="6">
+  <div class="header">
+    <div class="eyebrow" style="margin-bottom: 16px;">El método antes y ahora</div>
+    <h3>Cada fase ahora tiene <em>un asistente</em>.</h3>
+  </div>
+  <div class="phases-grid">
+    <div class="phase-cell header-cell"><div class="num">01</div><div class="name">Empatizar</div></div>
+    <div class="phase-cell header-cell"><div class="num">02</div><div class="name">Definir</div></div>
+    <div class="phase-cell header-cell"><div class="num">03</div><div class="name">Idear</div></div>
+    <div class="phase-cell header-cell"><div class="num">04</div><div class="name">Prototipar</div></div>
+    <div class="phase-cell header-cell"><div class="num">05</div><div class="name">Evaluar</div></div>
+
+    <div class="phase-cell body-cell">
+      <div class="ai-tag">IA aporta</div>
+      <div class="ai-task">Genera personas. Simula entrevistas. Da hipótesis previas a salir al campo.</div>
+    </div>
+    <div class="phase-cell body-cell">
+      <div class="ai-tag">IA aporta</div>
+      <div class="ai-task">Sintetiza muchas frases en POVs. Genera HMWs alternativas.</div>
+    </div>
+    <div class="phase-cell body-cell">
+      <div class="ai-tag">IA aporta</div>
+      <div class="ai-task">Diverge en segundos. Agrupa, evalúa, recomienda una candidata.</div>
+    </div>
+    <div class="phase-cell body-cell">
+      <div class="ai-tag">IA aporta</div>
+      <div class="ai-task">Construye UI funcional, itera en lenguaje natural, publica al instante.</div>
+    </div>
+    <div class="phase-cell body-cell">
+      <div class="ai-tag">IA aporta</div>
+      <div class="ai-task">Aplica heurísticas. Sintetiza feedback de usuarios reales.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 7: Prompt Engineering intro ═══════════════════ -->
+<section class="slide s-pe-intro" data-slide="7">
+  <div class="eyebrow-row">
+    <span class="divider-line"></span>
+    <span class="pause">Pausa · 3 minutos</span>
+  </div>
+  <h2>¿Cómo se le habla<br>a una <em>IA?</em></h2>
+  <div class="footnote">
+    Esto se llama <strong>prompt engineering</strong>, y hoy es lo que era saber buscar en Google en 2005: no es opcional. Es la habilidad base.
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 8: 4 técnicas ═══════════════════ -->
+<section class="slide s-techniques" data-slide="8">
+  <h3>Cuatro técnicas que vas a ver <em>toda la hora</em>.</h3>
+  <div class="techniques-grid">
+    <div class="tech-card">
+      <div class="num">TÉCNICA 01</div>
+      <div class="name">Role Prompting</div>
+      <div class="desc">Asignarle al modelo un rol cambia tono, profundidad, vocabulario. No es decoración — es el punto de vista desde el cual responde.</div>
+      <div class="example">"Eres un investigador UX trabajando con datos cualitativos…"</div>
+    </div>
+    <div class="tech-card">
+      <div class="num">TÉCNICA 02</div>
+      <div class="name">Contextual Prompting</div>
+      <div class="desc">Cargar al modelo con la información necesaria antes de pedir. Sin contexto, la IA asume — y casi siempre asume mal.</div>
+      <div class="example">"Hasta ahora hemos descubierto X. El persona principal es Y…"</div>
+    </div>
+    <div class="tech-card">
+      <div class="num">TÉCNICA 03</div>
+      <div class="name">Chain of Thought</div>
+      <div class="desc">Pedirle que muestre los pasos antes de la conclusión. La calidad del resultado mejora cuando el modelo "piensa en voz alta".</div>
+      <div class="example">"Antes de responder: 1) agrupa, 2) identifica patrones, 3) decide…"</div>
+    </div>
+    <div class="tech-card">
+      <div class="num">TÉCNICA 04</div>
+      <div class="name">Prompts Enriquecidos</div>
+      <div class="desc">La fórmula que combina todo: rol + contexto + tarea + formato + restricciones. Si falta una, el modelo improvisa esa parte y suele equivocarse.</div>
+      <div class="example">[ROL] + [CONTEXTO] + [TAREA] + [FORMATO] + [RESTRICCIONES]</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 9: Plantilla universal ═══════════════════ -->
+<section class="slide s-template" data-slide="9">
+  <div class="header">
+    <h3>La plantilla <em>universal</em>.</h3>
+    <div class="subtitle">Si tu prompt no incluye estos cinco componentes, alguno se está improvisando.</div>
+  </div>
+  <div class="template-block">
+<span class="tag">[ROL]</span>           Eres un <span class="placeholder">{rol</span> experto en <span class="placeholder">{dominio}</span>.
+
+<span class="tag">[CONTEXTO]</span>      Estás trabajando en <span class="placeholder">{proyecto}</span> con
+                <span class="placeholder">{usuarios}</span> que <span class="placeholder">{necesidad}</span>.
+                Hasta ahora hemos descubierto <span class="placeholder">{hallazgos}</span>.
+
+<span class="tag">[TAREA]</span>         Genera / Sintetiza / Evalúa <span class="placeholder">{acción específica}</span>.
+
+<span class="tag">[FORMATO]</span>       Responde en <span class="placeholder">{estructura}</span> con <span class="placeholder">{longitud}</span>.
+
+<span class="tag">[RESTRICCIONES]</span> Evita <span class="placeholder">{X}</span>. Considera <span class="placeholder">{Y}</span>. Sé <span class="placeholder">{Z}</span>.</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 10: Anti-patrones ═══════════════════ -->
+<section class="slide s-antipatterns" data-slide="10">
+  <h3>Dos errores comunes <em>que no van a cometer hoy</em>.</h3>
+  <div class="antipatterns-grid">
+    <div class="antipattern bad">
+      <div class="label">Anti-patrón 01 · Prompt de una línea</div>
+      <div class="quote">"Hazme una app de reportes para Tuluá"</div>
+      <div class="result">Sale algo. Pero genérico, predecible, sin alma. La diferencia entre un prompt de 1 línea y uno de 15 es la diferencia entre un becario sin contexto y un consultor que entendió el brief.</div>
+    </div>
+    <div class="antipattern bad">
+      <div class="label">Anti-patrón 02 · Prompt sin formato</div>
+      <div class="quote">"Dame ideas, frustraciones, personas y un POV todo junto"</div>
+      <div class="result">Sale una sopa de texto. Si quieres estructura en la respuesta, pídela explícita: numera, etiqueta, define longitud máxima.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 11: Reto TulúAlerta ═══════════════════ -->
+<section class="slide s-reto" data-slide="11">
+  <div class="left">
+    <span class="badge">El reto de hoy</span>
+    <h3><em>Tulú</em>Alerta</h3>
+    <p>
+      Tuluá tiene un río. Bendición y problema. En 2011 se desbordó y dejó miles de damnificados. Hoy hay puntos críticos — basuras que tapan alcantarillas, niveles que suben de noche, contaminación aguas arriba.
+    </p>
+    <p>
+      La información existe. La tiene la CVC, los vecinos, ustedes. Pero está fragmentada. <strong style="color: var(--ink);">Vamos a unirla.</strong>
+    </p>
+  </div>
+  <div class="right">
+    <div class="river-illustration">
+      <img src="/Users/wareval0/Downloads/RIO-TULUA-720.jpg" alt="Río Tuluá">
+      <div class="label">
+        Río Tuluá · Valle del Cauca
+        <div class="label-note">"La información existe — está fragmentada."</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 12: EMPATIZAR — qué es ═══════════════════ -->
+<section class="slide s-phase-intro" data-slide="12">
+  <div class="top">
+    <div class="phase-num">01</div>
+    <h2>Empatizar</h2>
+  </div>
+  <div class="definition">
+    "Dejar de creer que ya sabes lo que el otro necesita. Es ponerse en sus zapatos — pero no imaginarlos: ir a verlos."
+  </div>
+  <div class="tools">
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 01</div>
+      <div class="tool-name">Entrevistas semiestructuradas</div>
+      <div class="tool-desc">Preguntas abiertas, no respuestas múltiples. "¿Qué hizo la última vez que llovió fuerte?" no "¿le gustaría una app?"</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 02</div>
+      <div class="tool-name">Empathy Map</div>
+      <div class="tool-desc">Cuatro casillas: lo que la persona DICE, PIENSA, HACE y SIENTE. Las cuatro suelen contradecirse. Ahí están los insights.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 03</div>
+      <div class="tool-name">Personas</div>
+      <div class="tool-desc">Perfiles ficticios pero verosímiles que sintetizan a varios usuarios reales en un arquetipo trabajable.</div>
+    </div>
+  </div>
+  <div class="ia-line">
+    <div class="ia-tag">↳ IA</div>
+    <div class="ia-text">Genera personas en segundos. Simula entrevistas. Te da hipótesis con qué llegar al barrio. <strong>No reemplaza ir al barrio.</strong></div>
+  </div>
+  <div class="footer-techniques"><span class="lbl">PROMPT TECHNIQUES</span> · ROL + CONTEXTO + CHAIN-OF-THOUGHT + FORMATO</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 13: Fillout AI live demo ═══════════════════ -->
+<section class="slide s-live" data-slide="13">
+  <div class="badge">
+    <span class="pulse"></span>
+    Construyendo en vivo
+  </div>
+  <h2>Vamos a hacer un formulario <em>con IA</em>, en directo.</h2>
+  <div class="arrow-down">↓</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 14: EMPATIZAR QR ═══════════════════ -->
+<section class="slide s-qr" data-slide="14">
+  <div class="left">
+    <div class="phase-tag">Fase 01 · Empatizar</div>
+    <h2>Métete <em>en el papel</em>.</h2>
+    <p class="instr">
+      Saca el celular. Apunta al QR. Imagínate que eres un vecino del Río Tuluá. La señora que vende minutos. El estudiante que cruza en bici. El vigilante que trabaja de noche.
+    </p>
+    <p class="instr">
+      No tiene que ser una respuesta correcta. Tiene que ser una respuesta humana.
+    </p>
+    <div class="timer">
+      <span class="timer-icon"></span>
+      <span>Tienen 90 segundos</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="qr-frame" id="qr-empatizar">
+      <img src="qr-empatizar.jpg" alt="QR empatizar">
+    </div>
+    <div class="qr-caption">FORMULARIO · EMPATIZAR</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 15: DEFINIR — qué es ═══════════════════ -->
+<section class="slide s-phase-intro" data-slide="15">
+  <div class="top">
+    <div class="phase-num">02</div>
+    <h2>Definir</h2>
+  </div>
+  <div class="definition">
+    "Resumir todo lo aprendido en una sola pregunta. Si no puedes hacer eso, no entendiste el problema todavía."
+  </div>
+  <div class="tools">
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 01</div>
+      <div class="tool-name">Punto de Vista (POV)</div>
+      <div class="tool-desc">Una frase: <em>[usuario] necesita [necesidad emocional o funcional] porque [insight sorprendente]</em>. Tiene que doler un poco.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 02</div>
+      <div class="tool-name">¿Cómo Podríamos…? (HMW)</div>
+      <div class="tool-desc">Pregunta abierta que invita ideas. "Hagamos una app" cierra. "¿Cómo podríamos lograr X?" abre.</div>
+    </div>
+  </div>
+  <div class="ia-line">
+    <div class="ia-tag">↳ IA</div>
+    <div class="ia-text">Excelente sintetizando. <strong>NO elige cuál POV vale la pena perseguir</strong> — esa decisión es 100% humana.</div>
+  </div>
+  <div class="footer-techniques"><span class="lbl">PROMPT TECHNIQUES</span> · ROL + CONTEXTO ENRIQUECIDO + CoT</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 16: DEFINIR QR ═══════════════════ -->
+<section class="slide s-qr" data-slide="16">
+  <div class="left">
+    <div class="phase-tag">Fase 02 · Definir</div>
+    <h2>¿Cuál es el problema, <em>exactamente?</em></h2>
+    <p class="instr">
+      Una frase corta. La frustración central que ven después de leer los perfiles que la IA acaba de sintetizar. Lo más esencial, no lo más completo.
+    </p>
+    <div class="timer">
+      <span class="timer-icon"></span>
+      <span>Tienen 60 segundos</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="qr-frame" id="qr-definir">
+      <img src="qr-definir.jpg" alt="QR Definir">
+    </div>
+    <div class="qr-caption">FORMULARIO · DEFINIR</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 17: HMW elegida ═══════════════════ -->
+<section class="slide s-hmw" data-slide="17">
+  <div class="label">La pregunta que vamos a perseguir</div>
+  <div class="question">
+    <span class="openq">¿</span>Cómo podríamos lograr que un reporte ciudadano sobre el río se sienta atendido en menos de 24 horas, incluso sin smartphone moderno<span class="openq">?</span>
+  </div>
+  <div class="footer">
+    Esta pregunta nos obliga a pensar en accesibilidad, confianza y respuesta.
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 18: IDEAR — qué es ═══════════════════ -->
+<section class="slide s-phase-intro" data-slide="18">
+  <div class="top">
+    <div class="phase-num">03</div>
+    <h2>Idear</h2>
+  </div>
+  <div class="definition">
+    "No es 'tener una buena idea'. Es tener muchas — incluyendo malas, raras, imposibles. La buena emerge de las malas."
+  </div>
+  <div class="tools">
+    <div class="tool">
+      <div class="tool-num">REGLA · 01</div>
+      <div class="tool-name">Aplazar el juicio</div>
+      <div class="tool-desc">Nadie evalúa nada hasta que termine el ejercicio. La idea más absurda puede inspirar la mejor.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">REGLA · 02</div>
+      <div class="tool-name">Cantidad sobre calidad</div>
+      <div class="tool-desc">Las primeras 5 son obvias. Las siguientes 3 son derivadas. Las últimas 2 son donde aparece lo interesante.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">TÉCNICA · 03</div>
+      <div class="tool-name">"La peor idea posible"</div>
+      <div class="tool-desc">En vez de buscar la mejor, busca la peor. Libera. Y muchas veces revela un supuesto escondido.</div>
+    </div>
+  </div>
+  <div class="ia-line">
+    <div class="ia-tag">↳ IA</div>
+    <div class="ia-text">Genera 50 ideas en 30 segundos. <strong>Pero tiende a ideas predecibles</strong> — tu trabajo es empujarla a lo raro y filtrar lo bueno.</div>
+  </div>
+  <div class="footer-techniques"><span class="lbl">PROMPT TECHNIQUES</span> · DIVERGIR ANTES DE CONVERGIR · CoT EXPLÍCITO</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 19: IDEAR QR ═══════════════════ -->
+<section class="slide s-qr" data-slide="19">
+  <div class="left">
+    <div class="phase-tag">Fase 03 · Idear</div>
+    <h2>Tres ideas, sin <em>filtrar</em>.</h2>
+    <p class="instr">
+      Tu idea seria. La idea más loca que se te ocurra. Y una solución NO tecnológica que también resolvería esto.
+    </p>
+    <p class="instr">
+      Las voy a sumar a las que genere la IA. Vamos a buscar patrones cruzados.
+    </p>
+    <div class="timer">
+      <span class="timer-icon"></span>
+      <span>Tienen 60 segundos</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="qr-frame" id="qr-idear">
+      <img src="qr-idear.jpg" alt="QR Idear">
+    </div>
+    <div class="qr-caption">FORMULARIO · IDEAR</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 20: Brief de Prototipo ═══════════════════ -->
+<section class="slide s-brief" data-slide="20">
+  <h3>Esto lo construimos <em>juntos</em>.</h3>
+  <div class="subtitle">
+    Cuatro decisiones de la audiencia + IA, listas para entrar al prompt del prototipo. Sin este brief, Claude haría una app genérica de reportes.
+  </div>
+  <div class="brief-layout">
+    <div class="brief-inputs">
+      <div class="brief-card">
+        <div class="label">Persona principal</div>
+        <div class="content"><em>Marta, 54</em> · vendedora informal cerca del puente. No usa apps modernas, pero sí WhatsApp.</div>
+      </div>
+      <div class="brief-card">
+        <div class="label">POV</div>
+        <div class="content">Marta necesita <em>confiar</em> en que su reporte llegue a alguien que actúe — porque la última vez nadie vino.</div>
+      </div>
+      <div class="brief-card">
+        <div class="label">HMW</div>
+        <div class="content">¿Cómo podríamos lograr que un reporte se sienta atendido en menos de 24h, incluso sin smartphone moderno?</div>
+      </div>
+      <div class="brief-card">
+        <div class="label">Idea final · híbrida</div>
+        <div class="content">App con mapa + 3 niveles de urgencia + sin login + <em>conexión visible a WhatsApp</em>.</div>
+      </div>
+    </div>
+    <div class="brief-arrow">
+      <svg viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 10 30 Q 50 30 50 100 Q 50 170 90 170" stroke="#C4733B" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
+        <path d="M 10 70 Q 50 70 50 100" stroke="#C4733B" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
+        <path d="M 10 130 Q 50 130 50 100" stroke="#C4733B" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
+        <path d="M 10 170 Q 50 170 90 170" stroke="#C4733B" stroke-width="2" fill="none" stroke-dasharray="4 6"/>
+        <polygon points="85 165, 95 170, 85 175" fill="#C4733B"/>
+      </svg>
+    </div>
+    <div class="brief-output">
+      <div class="small">El prototipo</div>
+      <div class="name">TulúAlerta</div>
+      <div class="desc">React + Tailwind, mobile-first, publicado a URL pública en menos de 15 minutos.</div>
+    </div>
+  </div>
+  <div class="footer-techniques"><span class="lbl">PROMPT TECHNIQUE</span> · CONTEXTUAL PROMPTING LLEVADO AL EXTREMO</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 21: PROTOTIPAR — qué es ═══════════════════ -->
+<section class="slide s-phase-intro" data-slide="21">
+  <div class="top">
+    <div class="phase-num">04</div>
+    <h2>Prototipar</h2>
+  </div>
+  <div class="definition">
+    "Lo suficientemente bueno para que alguien lo toque. No perfecto. Tocable."
+  </div>
+  <div class="tools">
+    <div class="tool">
+      <div class="tool-num">PASO · 01</div>
+      <div class="tool-name">Stitch</div>
+      <div class="tool-desc">Mockup visual de Google. "Cómo se ve" la app. Texto → 3 pantallas en 60 segundos.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">PASO · 02</div>
+      <div class="tool-name">Claude Artifacts</div>
+      <div class="tool-desc">Prototipo funcional en React. "Cómo se siente". Iteración en lenguaje natural.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">PASO · 03</div>
+      <div class="tool-name">Publish + QR</div>
+      <div class="tool-desc">URL pública en un click. La audiencia abre el prototipo en su celular.</div>
+    </div>
+  </div>
+  <div class="ia-line">
+    <div class="ia-tag">↳ IA</div>
+    <div class="ia-text">El cambio más radical de los últimos dos años. Antes: diseñador + dev + una semana. Hoy: IA + 15 minutos.</div>
+  </div>
+  <div class="footer-techniques"><span class="lbl">PROMPT TECHNIQUES</span> · BRIEF COMPLETO + ITERACIÓN INCREMENTAL EN LENGUAJE NATURAL</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 22: EVALUAR — qué es ═══════════════════ -->
+<section class="slide s-phase-intro" data-slide="22">
+  <div class="top">
+    <div class="phase-num">05</div>
+    <h2>Evaluar</h2>
+  </div>
+  <div class="definition">
+    "La fase humilde. Casi siempre el prototipo está peor de lo que crees. Eso no es fracaso — es información."
+  </div>
+  <div class="tools">
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 01</div>
+      <div class="tool-name">Pruebas de usabilidad</div>
+      <div class="tool-desc">Le das el prototipo a alguien que nunca lo ha visto. NO le explicas. Lo observas. Cuando se traba, no lo ayudas — anotas dónde.</div>
+    </div>
+    <div class="tool">
+      <div class="tool-num">HERRAMIENTA · 02</div>
+      <div class="tool-name">Heurísticas de Nielsen</div>
+      <div class="tool-desc">10 principios de los 90, todavía vigentes. ¿Da feedback? ¿Se puede deshacer? ¿El lenguaje es del usuario o del sistema?</div>
+    </div>
+  </div>
+  <div class="ia-line">
+    <div class="ia-tag">↳ IA</div>
+    <div class="ia-text">Hace evaluación heurística en segundos. <strong>NO sustituye observar a un humano real</strong> intentando usar la app por primera vez.</div>
+  </div>
+  <div class="footer-techniques"><span class="lbl">PROMPT TECHNIQUES</span> · ROL EVALUADOR + CoT POR HEURÍSTICA</div>
+</section>
+
+<!-- ═══════════════════ SLIDE 23: EVALUAR QR ═══════════════════ -->
+<section class="slide s-qr" data-slide="23">
+  <div class="left">
+    <div class="phase-tag">Fase 05 · Evaluar</div>
+    <h2>Tu turno de <em>romperlo</em>.</h2>
+    <p class="instr">
+      Ya tienen el prototipo abierto en el celular. Tóquenlo, intenten reportar algo, vean qué pasa.
+    </p>
+    <p class="instr">
+      Después contesten cinco preguntas cortas. Cero diplomacia: si algo está mal, díganmelo.
+    </p>
+    <div class="timer">
+      <span class="timer-icon"></span>
+      <span>Tienen 90 segundos</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="qr-frame" id="qr-evaluar">
+      <img src="qr-evaluar.jpg" alt="QR Evaluar">
+    </div>
+    <div class="qr-caption">FORMULARIO · EVALUAR</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 24: Vibe Coding ═══════════════════ -->
+<section class="slide s-vibe" data-slide="24">
+  <div class="header">
+    <h3>Vibe coding · <em>¿amigo o enemigo?</em></h3>
+    <p class="subtitle">Programar dejándose llevar por la intuición, pidiéndole a la IA, aceptando lo que sale. Lo que acabamos de hacer en los últimos 15 minutos. Hablémoslo.</p>
+  </div>
+  <div class="vibe-grid">
+    <div class="vibe-col ok">
+      <div class="col-tag">Cuándo está bien</div>
+      <div class="col-title">Cuando la IA te <em>acelera</em>.</div>
+      <ul>
+        <li>Estás explorando una idea o prototipo desechable</li>
+        <li>Las consecuencias del error son bajas</li>
+        <li>Puedes botar lo que salga y empezar de nuevo</li>
+        <li>Estás aprendiendo y la IA actúa como tutor</li>
+        <li>El código no toca datos sensibles, dinero o vidas</li>
+      </ul>
+    </div>
+    <div class="vibe-col danger">
+      <div class="col-tag">Cuándo es peligroso</div>
+      <div class="col-title">Cuando la IA te <em>disfraza</em>.</div>
+      <ul>
+        <li>Hay datos personales o información sensible</li>
+        <li>Hay vidas o dinero en juego</li>
+        <li>Las decisiones son difíciles de revertir</li>
+        <li>No puedes explicar línea por línea qué hace</li>
+        <li>No detectarías un error si la IA mintiera bien</li>
+      </ul>
+    </div>
+  </div>
+  <div class="vibe-quote">
+    "La IA es una palanca. Multiplica lo que tú aportes. Si aportas criterio, multiplica criterio. Si aportas vacío, multiplica vacío."
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 25: 3 principios ═══════════════════ -->
+<section class="slide s-principles" data-slide="25">
+  <h3>Tres principios <em>para llevarse</em>.</h3>
+  <div class="principles-grid">
+    <div class="principle">
+      <div class="num">01</div>
+      <div class="title">Ensúciate las manos primero.</div>
+      <div class="body">Antes de delegar X a la IA, aprende lo suficiente de X como para detectar cuando te miente. La IA falla más seguido de lo que parece — y la mentira más peligrosa es la que suena bien.</div>
+    </div>
+    <div class="principle">
+      <div class="num">02</div>
+      <div class="title">Acelera lo que sabes. Enmascara lo que no.</div>
+      <div class="body">Un senior con IA produce más rápido y mejor. Un junior con IA produce más rápido y peor — porque acumula deuda técnica que no detecta. Si están empezando, usen la IA como tutor, no como reemplazo.</div>
+    </div>
+    <div class="principle">
+      <div class="num">03</div>
+      <div class="title">Sé arquitecto, no estenógrafo.</div>
+      <div class="body">El trabajo del ingeniero no se reemplaza — se recoloca. Teclear código rutinario sí. Decidir qué construir, cómo descomponer, qué tradeoffs tomar — esa parte se vuelve más valiosa, no menos.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 26: AI didn't ═══════════════════ -->
+<section class="slide s-not-did" data-slide="26">
+  <h3>Lo que la IA <span class="strike">sí</span> <em>no hizo hoy.</em></h3>
+  <ul class="not-did-list">
+    <li>No fue al barrio.</li>
+    <li>No habló con Marta de verdad.</li>
+    <li>No sabe si la CVC tiene capacidad real de atender estos reportes.</li>
+    <li>No detectó que el prototipo, sin moderación, podría usarse para denunciar personas en vez de problemas.</li>
+    <li>No considera que partes de Tuluá tienen poca señal.</li>
+    <li>No te pregunta si esto debería existir. Solo te ayuda a construirlo.</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════ SLIDE 27: 3 mensajes finales ═══════════════════ -->
+<section class="slide s-three-msgs" data-slide="27">
+  <div class="label">Tres frases para llevarse</div>
+  <div class="three-msgs">
+    <div class="msg">
+      <div class="num">01</div>
+      <div class="text">La IA <em>acelera</em> el Design Thinking. No lo reemplaza.</div>
+    </div>
+    <div class="msg">
+      <div class="num">02</div>
+      <div class="text">Prompt engineering hoy es como Google en <em>2005</em>: la habilidad base.</div>
+    </div>
+    <div class="msg">
+      <div class="num">03</div>
+      <div class="text">Vibe coding no es el problema. La <em>falta de criterio</em> es el problema.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 28: Recursos ═══════════════════ -->
+<section class="slide s-recursos" data-slide="28">
+  <div class="left">
+    <h3>Recursos para <em>llevarse</em>.</h3>
+    <ul>
+      <li>Prototipo final de TulúAlerta (URL pública)</li>
+      <li>Los 8 prompts de la charla, listos para copiar</li>
+      <li>Plantilla universal de prompt engineering</li>
+      <li>Stack de herramientas: cuándo usar cada una</li>
+      <li>Lecturas: <em>Sprint</em>, d.school Bootleg, Karpathy on vibe coding</li>
+      <li>Mi correo y LinkedIn</li>
+    </ul>
+    <div class="invite">
+      Si construyen algo con esto en su ciudad, escríbanme. Me encanta saber.
+    </div>
+  </div>
+  <div class="right">
+    <div class="qr-frame" id="qr-recursos">
+      <div class="placeholder">QR a Notion / Linktree<br>de recursos</div>
+    </div>
+    <div class="qr-caption">RECURSOS · LLÉVATE TODO</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SLIDE 29: Gracias ═══════════════════ -->
+<section class="slide s-gracias" data-slide="29">
+  <div class="word"><em>G</em>racias</div>
+  <div class="sub">Pregúntame lo que sea.</div>
+  <div class="contact">
+    <div><strong>Wilmer Arévalo</strong> · Universidad de los Andes</div>
+    <div><strong>·</strong></div>
+    <div>Lenses Research Lab · Fast-Prototyping & Prompt Engineering</div>
+  </div>
+</section>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <div class="nav-arrows">
+    <button class="nav-arrow" id="prev" aria-label="Anterior">‹</button>
+    <button class="nav-arrow" id="next" aria-label="Siguiente">›</button>
+  </div>
+  <div class="nav-counter"><span id="current">1</span> / <span id="total">29</span></div>
+</div>
+
+<script>
+  // ─── Slide navigation ───────────────────────────────────────
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  document.getElementById('total').textContent = total;
+  const progressBar = document.getElementById('progress');
+
+  function showSlide(idx) {
+    if (idx < 0 || idx >= total) return;
+    slides[current].classList.remove('active');
+    current = idx;
+    slides[current].classList.add('active');
+    document.getElementById('current').textContent = current + 1;
+    progressBar.style.width = ((current + 1) / total * 100) + '%';
+  }
+
+  document.getElementById('next').addEventListener('click', () => showSlide(current + 1));
+  document.getElementById('prev').addEventListener('click', () => showSlide(current - 1));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault();
+      showSlide(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      showSlide(current - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      showSlide(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      showSlide(total - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    } else if (/^[1-9]$/.test(e.key)) {
+      const n = parseInt(e.key, 10) - 1;
+      if (n < total) showSlide(n);
+    }
+  });
+
+  // Initialize
+  progressBar.style.width = (1 / total * 100) + '%';
+
+  // ─── QR generation ──────────────────────────────────────────
+  function generateQR(elementId, url) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!url || url.includes('PEGAR-URL')) return;  // keep placeholder if not set
+    el.innerHTML = '';
+    new QRCode(el, {
+      text: url,
+      width: 280,
+      height: 280,
+      colorDark: "#1A1A1A",
+      colorLight: "#F5F1EA",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  }
+
+  // Wait for QRCode library to load
+  window.addEventListener('load', () => {
+    if (typeof QRCode !== 'undefined') {
+      generateQR('qr-empatizar', CONFIG.forms.empatizar);
+      generateQR('qr-definir',   CONFIG.forms.definir);
+      generateQR('qr-idear',     CONFIG.forms.idear);
+      generateQR('qr-evaluar',   CONFIG.forms.evaluar);
+      generateQR('qr-recursos',  CONFIG.recursos);
+    }
+  });
+</script>
+
+</body>
+</html>
